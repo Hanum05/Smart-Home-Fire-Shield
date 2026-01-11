@@ -192,7 +192,15 @@
         // --- AUDIO ---
         function playAlarm() {
             const audio = document.getElementById('alarm-sound');
-            if (audio) audio.play().catch(e => console.log("Audio play failed:", e));
+            if (audio) {
+                // Gunakan promise untuk menangani error jika file tidak ditemukan atau autoplay diblokir
+                const playPromise = audio.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(error => {
+                        console.log("Audio playback prevented or file missing:", error);
+                    });
+                }
+            }
         }
 
         function stopAlarm() {
@@ -243,12 +251,12 @@
             
             // Tampilkan text loading
             const loadingText = document.createElement('div');
-            loadingText.className = 'absolute inset-0 flex items-center justify-center text-slate-500 text-sm pointer-events-none';
+            loadingText.className = 'absolute inset-0 flex items-center justify-center text-slate-500 text-sm pointer-events-none z-10';
             loadingText.innerText = 'Memuat Model 3D...';
             container.appendChild(loadingText);
 
-            // PATH KE FILE ANDA
-            loader.load('./fire+extinguisher/model.dae', function (collada) {
+            // PATH FIX: Menghilangkan ./ agar lebih robust di berbagai environment
+            loader.load('fire+extinguisher/model.dae', function (collada) {
                 const model = collada.scene;
                 
                 // Hapus loading text
@@ -271,9 +279,25 @@
                 scene.add(model);
 
             }, undefined, function (error) {
-                console.error(error);
-                loadingText.innerText = 'Gagal memuat model.dae. Cek path file.';
-                loadingText.classList.add('text-red-500');
+                console.warn("Gagal memuat model.dae, menampilkan placeholder.", error);
+                
+                // Update text
+                loadingText.innerText = 'Model tidak ditemukan. Menampilkan placeholder.';
+                loadingText.className = 'absolute bottom-2 left-0 right-0 text-center text-yellow-600 text-xs pointer-events-none z-10 font-bold';
+
+                // FALLBACK: Buat Tabung Merah Sederhana (Cylinder) jika model gagal dimuat
+                const geometry = new THREE.CylinderGeometry(0.5, 0.5, 2, 32);
+                const material = new THREE.MeshPhongMaterial({ color: 0xdc2626 }); // Red-600
+                const cylinder = new THREE.Mesh(geometry, material);
+                
+                // Tambahkan detail tutup hitam (Nozzle simple)
+                const nozzleGeo = new THREE.BoxGeometry(0.2, 0.2, 0.5);
+                const nozzleMat = new THREE.MeshPhongMaterial({ color: 0x1f2937 });
+                const nozzle = new THREE.Mesh(nozzleGeo, nozzleMat);
+                nozzle.position.set(0, 0.8, 0.4);
+                cylinder.add(nozzle);
+
+                scene.add(cylinder);
             });
 
             // 5. Animation Loop
