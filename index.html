@@ -241,9 +241,9 @@
             controls.autoRotateSpeed = 2.0;
             
             // --- PERBAIKAN DI SINI ---
-            // Membatasi zoom agar tidak bablas
+            // Membatasi zoom agar tidak bablas, namun diperjauh lagi
             controls.minDistance = 2;   // Jarak minimal (agar tidak tembus)
-            controls.maxDistance = 50;  // Jarak maksimal (agar tidak hilang)
+            controls.maxDistance = 200; // Jarak maksimal diperbesar (sebelumnya 50)
             // -------------------------
 
             const loader = new ColladaLoader();
