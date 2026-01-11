@@ -1,1102 +1,705 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" class="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Save - Tracker Keuangan Pribadi</title>
+    <title>Smart-Home Fire Shield</title>
+    
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Font Awesome untuk Ikon -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
-    
     <script>
         tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'primary': '#FF9F9F', // Pink lembut
-                        'secondary': '#FFC5C5',
-                        'accent': '#88D8C0', // Hijau tosca
-                        'dark': '#4A4A4A',
-                        'budget-safe': '#4ECDC4', // Biru muda/Tosca
-                        'budget-warn': '#FFE66D', // Kuning
-                        'budget-danger': '#FF6B6B' // Merah
-                    },
-                    fontFamily: {
-                        'nunito': ['Nunito', 'sans-serif'],
-                    },
-                    animation: {
-                        'float': 'float 3s ease-in-out infinite',
-                        'blink': 'blink 4s infinite',
-                        'pulse-red': 'pulse-red 1s infinite',
-                    },
-                    keyframes: {
-                        float: {
-                            '0%, 100%': { transform: 'translateY(0)' },
-                            '50%': { transform: 'translateY(-10px)' },
-                        },
-                        blink: {
-                            '0%, 96%, 100%': { transform: 'scaleY(1)' },
-                            '98%': { transform: 'scaleY(0.1)' },
-                        },
-                        'pulse-red': {
-                            '0%, 100%': { opacity: 1, transform: 'scale(1)' },
-                            '50%': { opacity: 0.7, transform: 'scale(0.98)' },
-                        }
-                    }
-                }
-            }
+            darkMode: 'class',
         }
     </script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap" rel="stylesheet">
 
     <style>
-        body {
-            font-family: 'Nunito', sans-serif;
-            background-color: #FFF5F5;
-            overflow-x: hidden;
-        }
-
-        /* Styling untuk Circular Menu (Menu Melingkar) */
-        .circle-container {
-            position: relative;
-            width: 320px;
-            height: 320px;
-            margin: 0 auto;
-        }
-
-        .center-chart {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 180px;
-            height: 180px;
-            border-radius: 50%;
-            z-index: 10;
-            background: white;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        }
-
-        /* Kategori tombol di Menu Melingkar - Tidak digunakan di sini, tapi dipertahankan untuk chart */
-        .category-btn { 
-            position: absolute;
-            width: 60px; 
-            height: 60px;
-            border-radius: 50%;
-            background: white;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 1.2rem;
-            color: #555;
-            border: 2px solid transparent;
-            position: relative;
-            overflow: hidden;
-        }
+        body { font-family: 'Inter', sans-serif; }
         
-        .category-btn:hover {
-            transform: scale(1.1);
-        }
-
-        .budget-ring {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            box-shadow: inset 0 0 0 4px; /* Border tebal untuk status anggaran */
-            transition: box-shadow 0.3s ease;
-        }
-
-        .budget-fill {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background-color: rgba(255, 159, 159, 0.3); /* Warna latar belakang progress */
-            transition: height 0.5s ease;
-        }
-
-        .donut-chart {
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            position: absolute;
-            top: 0;
-            left: 0;
-            z-index: 5;
-            transition: background 0.5s ease;
-        }
-
-        /* Modal Overlay */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 50;
-            justify-content: center;
-            align-items: flex-end; /* Mobile style (bottom sheet) */
-        }
+        /* Custom 3D Animations */
+        .perspective-1000 { perspective: 1000px; }
+        .preserve-3d { transform-style: preserve-3d; }
+        .backface-hidden { backface-visibility: hidden; }
+        .rotate-y-180 { transform: rotateY(180deg); }
         
-        @media (min-width: 640px) {
-            .modal {
-                align-items: center;
-            }
+        .group:hover .group-hover-rotate-y-180 {
+            transform: rotateY(180deg);
         }
 
-        .modal-content {
-            background: white;
-            width: 100%;
-            max-width: 400px;
-            padding: 20px;
-            border-top-left-radius: 20px;
-            border-top-right-radius: 20px;
-            animation: slideUp 0.3s ease-out;
-            max-height: 90vh;
-            overflow-y: auto;
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-
-        @media (min-width: 640px) {
-            .modal-content {
-                border-radius: 20px;
-                animation: zoomIn 0.3s ease-out;
-            }
-        }
-
-        @keyframes slideUp {
-            from { transform: translateY(100%); }
-            to { transform: translateY(0); }
-        }
-        @keyframes zoomIn {
-            from { transform: scale(0.9); opacity: 0; }
-            to { transform: scale(1); opacity: 1; }
-        }
-        
-        /* Floating Action Button */
-        .fab {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 45;
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            background-color: #FF9F9F;
-            color: white;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-            transition: transform 0.2s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-        }
-        .fab:hover {
-            transform: scale(1.05);
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
         }
     </style>
 </head>
-<body class="flex flex-col min-h-screen text-gray-700">
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 min-h-screen flex flex-col transition-colors duration-300">
 
-    <!-- Firebase Imports and Setup -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, deleteDoc, doc, writeBatch, setDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // setLogLevel('Debug'); // Uncomment for debugging
-        
-        // --- FIREBASE CONFIG & INIT (JANGAN DIUBAH) ---
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-        
-        window.db = db;
-        window.auth = auth;
-        window.COLLECTION_PATH = `/artifacts/${appId}/users/`;
-        
-        let userId = null;
-
-        // Sign-in logic
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                userId = user.uid;
-                document.getElementById('user-id').textContent = userId;
-                
-                // Mulai mendengarkan data setelah otentikasi
-                startDataListeners();
-            } else {
-                // Sign in anonymously if custom token is not available
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token).catch(e => {
-                        console.error("Custom token sign-in failed:", e);
-                        signInAnonymously(auth);
-                    });
-                } else {
-                    await signInAnonymously(auth).catch(e => {
-                        console.error("Anonymous sign-in failed:", e);
-                    });
-                }
-            }
-        });
-        
-        // --- FIREBASE LISTENERS ---
-
-        function startDataListeners() {
-            // 1. Transaction Listener
-            const transactionsRef = window.getTransactionsRef();
-            if (transactionsRef) {
-                onSnapshot(query(transactionsRef), (snapshot) => {
-                    const transactions = [];
-                    snapshot.forEach((doc) => {
-                        transactions.push({ id: doc.id, ...doc.data() });
-                    });
-                    transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
-                    window.transactions = transactions;
-                    window.updateUI(); // Panggil update UI
-                }, (error) => {
-                    console.error("Error listening to transactions:", error);
-                });
-            }
-
-            // 2. Budget Listener
-            const budgetsRef = window.getBudgetsRef();
-            if (budgetsRef) {
-                const budgetDocRef = doc(budgetsRef, 'monthly'); 
-                onSnapshot(budgetDocRef, (docSnap) => {
-                    window.budgets = docSnap.exists() ? docSnap.data().budgets : {};
-                    window.updateUI(); // Panggil update UI
-                }, (error) => {
-                    console.error("Error listening to budgets:", error);
-                });
-            }
-        }
-        
-        // --- FIREBASE UTILITIES ---
-
-        window.getTransactionsRef = () => {
-            if (!userId) return null;
-            return collection(db, `${window.COLLECTION_PATH}${userId}/transactions`);
-        };
-        
-        window.getBudgetsRef = () => {
-             if (!userId) return null;
-            return collection(db, `${window.COLLECTION_PATH}${userId}/budgets`);
-        };
-
-        window.addTransactionToFirestore = async (transaction) => {
-            const transactionsRef = window.getTransactionsRef();
-            if (!transactionsRef) return;
-            try {
-                await addDoc(transactionsRef, transaction);
-            } catch (error) {
-                console.error("Error adding transaction:", error);
-                pokeMascot("Gagal mencatat transaksi! Cek konsol.");
-            }
-        };
-        
-        window.saveBudgetsToFirestore = async (budgetsData) => {
-            const budgetsRef = window.getBudgetsRef();
-            if (!budgetsRef) return;
-            try {
-                const budgetDocRef = doc(budgetsRef, 'monthly');
-                await setDoc(budgetDocRef, { budgets: budgetsData }, { merge: true });
-                pokeMascot("Target anggaran bulanan berhasil disimpan! 🎯");
-            } catch (error) {
-                console.error("Error saving budgets:", error);
-                pokeMascot("Gagal menyimpan anggaran! Cek konsol.");
-            }
-        };
-
-        window.clearAllData = async () => {
-            if (!userId) {
-                pokeMascot("Otentikasi belum siap untuk menghapus data.");
-                return;
-            }
-
-            try {
-                const batch = writeBatch(db);
-
-                // Hapus Transaksi
-                const transactionsSnapshot = await getDocs(window.getTransactionsRef());
-                transactionsSnapshot.docs.forEach((doc) => batch.delete(doc.ref));
-
-                // Hapus Anggaran
-                const budgetDocRef = doc(window.getBudgetsRef(), 'monthly');
-                batch.delete(budgetDocRef);
-
-                await batch.commit();
-                pokeMascot("Semua data (transaksi & anggaran) berhasil dihapus! Mulai baru yuk.");
-            } catch (error) {
-                console.error("Error clearing data:", error);
-                pokeMascot("Gagal menghapus data! Cek konsol.");
-            }
-        };
-    </script>
-    
-    <!-- Navbar -->
-    <nav class="bg-white shadow-sm p-4 sticky top-0 z-40">
-        <div class="max-w-md mx-auto flex justify-between items-center">
-            <h1 class="text-xl font-bold text-primary flex items-center gap-2">
-                <i class="fas fa-money-bill-wave"></i> Smart Save
-            </h1>
-            <div class="flex items-center gap-2">
-                <!-- Tombol Atur Anggaran -->
-                <button class="text-gray-400 hover:text-primary transition" onclick="openBudgetModal()">
-                    <i class="fas fa-bullseye text-xl"></i>
-                </button>
-                <!-- Tombol Hapus Data -->
-                <button class="text-gray-400 hover:text-red-500 transition" onclick="window.clearAllData()">
-                    <i class="fas fa-trash text-lg"></i>
-                </button>
-                <!-- Tombol Pengaturan (Placeholder) -->
-                <button class="text-gray-400 hover:text-primary transition">
-                    <i class="fas fa-cog text-xl"></i>
-                </button>
-            </div>
-        </div>
-        <p class="max-w-md mx-auto text-[8px] text-gray-400 mt-1 truncate">User ID: <span id="user-id">Memuat...</span></p>
-    </nav>
+    <!-- Sticky Header & Alert Container -->
+    <div id="header-container" class="sticky top-0 z-50"></div>
 
     <!-- Main Content -->
-    <main class="flex-grow max-w-md mx-auto w-full p-4 flex flex-col items-center">
-        
-        <!-- Maskot Area (Animasi) -->
-        <div class="relative w-full flex justify-center mt-2 mb-6">
-            <!-- Bubble Chat -->
-            <div class="absolute -top-4 right-10 bg-white px-3 py-2 rounded-xl rounded-bl-none shadow-md text-sm text-primary font-bold animate-bounce hidden" id="mascot-msg">
-                Semangat hemat! ✨
-            </div>
-
-            <!-- SVG Maskot Cewek Jilbab -->
-            <div class="w-32 h-32 animate-float cursor-pointer" onclick="pokeMascot()">
-                <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-                    <!-- Background Circle -->
-                    <circle cx="100" cy="100" r="90" fill="#FFC5C5" opacity="0.5" />
-                    
-                    <!-- Jilbab (Back) -->
-                    <path d="M60,80 Q50,150 100,180 Q150,150 140,80" fill="#FF8ba7" />
-                    
-                    <!-- Neck -->
-                    <rect x="85" y="110" width="30" height="20" fill="#F3D0B6" />
-                    
-                    <!-- Jilbab (Front/Top) -->
-                    <path d="M50,90 Q50,20 100,20 Q150,20 150,90 Q150,130 140,150 Q100,190 60,150 Q50,130 50,90" fill="#FF9F9F" />
-                    
-                    <!-- Face -->
-                    <ellipse cx="100" cy="95" rx="35" ry="40" fill="#F3D0B6" />
-                    
-                    <!-- Inner Hijab (Ciput) -->
-                    <path d="M70,70 Q100,55 130,70 Q125,55 100,55 Q75,55 70,70" fill="#D65A72" />
-                    
-                    <!-- Eyes (Animate Blink) -->
-                    <g class="animate-blink origin-center">
-                        <circle cx="85" cy="90" r="4" fill="#4A4A4A" />
-                        <circle cx="115" cy="90" r="4" fill="#4A4A4A" />
-                        <!-- Eyelashes -->
-                        <path d="M81,88 Q85,85 89,88" stroke="#4A4A4A" stroke-width="1.5" fill="none"/>
-                        <path d="M111,88 Q115,85 119,88" stroke="#4A4A4A" stroke-width="1.5" fill="none"/>
-                    </g>
-                    
-                    <!-- Blush -->
-                    <ellipse cx="78" cy="105" rx="5" ry="3" fill="#FFB7B2" opacity="0.6" />
-                    <ellipse cx="122" cy="105" rx="5" ry="3" fill="#FFB7B2" opacity="0.6" />
-                    
-                    <!-- Mouth -->
-                    <path d="M92,110 Q100,115 108,110" stroke="#C48E73" stroke-width="2" fill="none" />
-                </svg>
-            </div>
-        </div>
-
-        <!-- Overview Summary Cards -->
-        <div class="w-full grid grid-cols-3 gap-3 mb-6">
-            <!-- Total Pemasukan -->
-            <div class="bg-green-100 p-3 rounded-xl shadow-md text-center">
-                <p class="text-xs text-green-700 font-semibold">Pemasukan</p>
-                <p class="text-base font-bold text-green-900" id="total-income">Rp 0</p>
-            </div>
-            <!-- Total Pengeluaran -->
-            <div class="bg-red-100 p-3 rounded-xl shadow-md text-center">
-                <p class="text-xs text-red-700 font-semibold">Pengeluaran</p>
-                <p class="text-base font-bold text-red-900" id="total-expense-summary">Rp 0</p>
-            </div>
-            <!-- Saldo Bersih -->
-            <div class="bg-primary p-3 rounded-xl shadow-md text-center text-white">
-                <p class="text-xs font-semibold">Saldo Bersih</p>
-                <p class="text-base font-bold" id="net-balance">Rp 0</p>
-            </div>
-        </div>
-
-        <!-- Bagian Chart & Menu Melingkar (Tetap di sini untuk visualisasi) -->
-        <div class="circle-container mb-6" id="circle-menu">
-            <!-- Donut Chart Background -->
-            <div class="donut-chart" id="donutChart" style="background: conic-gradient(#f3f4f6 0% 100%);"></div>
-
-            <!-- Pusat (Informasi Pie Chart) -->
-            <div class="center-chart">
-                <p class="text-xs text-gray-400 font-semibold uppercase tracking-wider">Total Pengeluaran</p>
-                <h2 class="text-2xl font-extrabold text-primary" id="total-expense-chart">Rp 0</h2>
-                <div class="mt-2 w-full px-4 text-center">
-                     <p class="text-[10px] text-gray-400 flex items-center justify-center gap-1">
-                        <i class="fas fa-bullseye text-accent"></i> 
-                        <span class="font-bold text-gray-700" id="budget-status">Anggaran Aman</span>
-                    </p>
-                </div>
-            </div>
-
-            <!-- Ikon-ikon Kategori untuk Progress Budget (Tetap di sini) -->
-        </div>
-        
-        <!-- Catat Pengeluaran Cepat (Baru) -->
-        <div class="w-full mb-8 p-3 bg-white rounded-2xl shadow-md">
-            <h3 class="font-bold text-gray-700 mb-4 text-center text-sm">Catat Pengeluaran Cepat</h3>
-            <div id="quick-expense-buttons" class="grid grid-cols-4 gap-3">
-                <!-- Tombol Kategori akan digenerate oleh JS di sini -->
-            </div>
-        </div>
-
-        <!-- Daftar Transaksi Terakhir -->
-        <div class="w-full bg-white rounded-2xl shadow-sm p-5 mb-20">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="font-bold text-gray-700">Riwayat Transaksi Terakhir</h3>
-                <span class="text-xs text-gray-400">Total: <span id="transaction-count">0</span></span>
-            </div>
-            <div id="transaction-list" class="space-y-3">
-                <div class="text-center text-gray-400 text-sm py-4">Memuat data...</div>
-            </div>
-        </div>
-
+    <main id="main-content" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
+        <!-- Content injected by JS -->
     </main>
-    
-    <!-- FAB untuk Tambah Transaksi -->
-    <div class="fab cursor-pointer" onclick="openTypeSelectorModal()">
-        <i class="fas fa-plus"></i>
-    </div>
 
-    <!-- Modal Pemilih Tipe Transaksi (Income/Expense) -->
-    <div id="typeSelectorModal" class="modal">
-        <div class="modal-content">
-            <h3 class="text-lg font-bold text-gray-700 mb-4">Pilih Jenis Transaksi</h3>
-            <div class="grid grid-cols-2 gap-4">
-                <button onclick="openInputModal('income')" class="bg-green-500 text-white font-bold p-4 rounded-xl shadow-lg hover:bg-green-600 transition">
-                    <i class="fas fa-arrow-down mr-2"></i> Pemasukan
-                </button>
-                <button onclick="openInputModal('expense', null, true)" class="bg-red-500 text-white font-bold p-4 rounded-xl shadow-lg hover:bg-red-600 transition">
-                    <i class="fas fa-arrow-up mr-2"></i> Pengeluaran
-                </button>
-            </div>
-            <button onclick="closeTypeSelectorModal()" class="w-full mt-4 text-gray-500 hover:text-dark transition text-sm">Batal</button>
-        </div>
-    </div>
+    <!-- Footer -->
+    <footer class="bg-slate-900 dark:bg-black text-slate-400 py-8 text-center border-t border-slate-800 mt-auto transition-colors duration-300">
+        <p class="text-sm">© 2024 Smart-Home Fire Shield. Mewujudkan Hunian Tangguh Bencana.</p>
+        <p class="text-xs mt-2">Selalu hubungi Pemadam Kebakaran (113) dalam kondisi darurat.</p>
+    </footer>
 
-    <!-- Modal Input Transaksi (Generic) -->
-    <div id="inputModal" class="modal">
-        <div class="modal-content">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold text-gray-700 flex items-center gap-2">
-                    <span id="modal-type-icon" class="text-primary"></span>
-                    <span id="modal-title"></span>
-                    <span id="modal-category" class="text-sm font-normal text-gray-500"></span>
-                </h3>
-                <button onclick="closeInputModal()" class="text-gray-400 hover:text-red-500">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            
-            <div id="category-picker-container" class="mb-4 hidden">
-                 <label class="block text-xs text-gray-500 mb-2">Pilih Kategori Pengeluaran</label>
-                 <div id="category-picker-buttons" class="grid grid-cols-4 gap-2 p-2 bg-gray-50 rounded-xl">
-                    <!-- Picker categories will be rendered here -->
-                 </div>
-            </div>
-            
-            <div class="mb-4">
-                <label class="block text-xs text-gray-500 mb-1">Jumlah</label>
-                <div class="relative">
-                    <span class="absolute left-3 top-3 text-gray-400 font-bold">Rp</span>
-                    <input type="number" id="amountInput" class="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 pl-10 pr-4 text-xl font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="0">
-                </div>
-            </div>
-
-            <div class="mb-6">
-                <label class="block text-xs text-gray-500 mb-1">Catatan/Sumber (Opsional)</label>
-                <input type="text" id="noteInput" class="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Contoh: Gaji Bulanan/Nasi Padang">
-            </div>
-
-            <input type="hidden" id="transactionType">
-            <input type="hidden" id="selectedCategoryId">
-
-            <button onclick="saveTransaction()" class="w-full bg-primary hover:bg-red-400 text-white font-bold py-3 rounded-xl shadow-lg transition transform active:scale-95" id="saveButton">
-                Simpan Transaksi
-            </button>
-        </div>
-    </div>
-    
-    <!-- Modal Pengaturan Anggaran (Budget) -->
-    <div id="budgetModal" class="modal">
-        <div class="modal-content">
-             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold text-gray-700 flex items-center gap-2">
-                    <i class="fas fa-bullseye text-accent"></i> Atur Anggaran Bulanan
-                </h3>
-                <button onclick="closeBudgetModal()" class="text-gray-400 hover:text-red-500">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <p class="text-sm text-gray-500 mb-4">Tetapkan batas pengeluaran untuk setiap kategori bulan ini.</p>
-            
-            <div id="budget-input-list" class="space-y-3 mb-6">
-                <!-- Input anggaran akan digenerate di sini -->
-            </div>
-
-            <button onclick="saveBudgets()" class="w-full bg-accent hover:bg-teal-400 text-white font-bold py-3 rounded-xl shadow-lg transition transform active:scale-95">
-                Simpan Anggaran
-            </button>
-        </div>
-    </div>
-
+    <!-- JAVASCRIPT LOGIC -->
     <script>
-        // ==========================================================
-        //  BAGIAN 1: DATA & VARIABEL GLOBAL
-        // ==========================================================
-        
-        // Konfigurasi Kategori Pengeluaran
-        const categories = [
-            { id: 'food', name: 'Makan', icon: 'fa-utensils', color: '#FF6B6B' },
-            { id: 'transport', name: 'Transport', icon: 'fa-bus', color: '#4ECDC4' },
-            { id: 'shopping', name: 'Belanja', icon: 'fa-shopping-bag', color: '#FFE66D' },
-            { id: 'bills', name: 'Tagihan', icon: 'fa-file-invoice-dollar', color: '#1A535C' },
-            { id: 'health', name: 'Kesehatan', icon: 'fa-heartbeat', color: '#FF9F9F' },
-            { id: 'edu', name: 'Pendidikan', icon: 'fa-book', color: '#6A0572' },
-            { id: 'ent', name: 'Hiburan', icon: 'fa-gamepad', color: '#AB83A1' },
-            { id: 'charity', name: 'Sedekah', icon: 'fa-hand-holding-heart', color: '#95E1D3' }
-        ];
+        // --- DATA & STATE ---
+        const state = {
+            activeTab: 'dashboard',
+            currentTime: new Date(),
+            selectedRoomId: null, // For 3D view
+            isDarkMode: false,
+            sensors: [
+                { id: 1, location: 'Dapur', pressure: 95, temp: 28, smoke: 5, status: 'SAFE' },
+                { id: 2, location: 'Ruang Tamu', pressure: 88, temp: 26, smoke: 2, status: 'SAFE' },
+                { id: 3, location: 'Garasi', pressure: 45, temp: 30, smoke: 10, status: 'SAFE' },
+                { id: 4, location: 'Halaman Depan', pressure: 92, temp: 29, smoke: 1, status: 'SAFE' },
+            ]
+        };
 
-        window.transactions = []; // Data transaksi dari Firestore
-        window.budgets = {}; // Data anggaran dari Firestore { categoryId: amount }
-        
-        // Referensi Elemen UI
-        const typeSelectorModal = document.getElementById('typeSelectorModal');
-        const inputModal = document.getElementById('inputModal');
-        const budgetModal = document.getElementById('budgetModal');
-        const amountInput = document.getElementById('amountInput');
-        const noteInput = document.getElementById('noteInput');
-        const transactionTypeHidden = document.getElementById('transactionType');
-        const selectedCategoryIdHidden = document.getElementById('selectedCategoryId');
-        const categoryPickerContainer = document.getElementById('category-picker-container');
-        
-        let bubbleTimeout; // Untuk timeout maskot
-        let currentSelectedCategoryElement = null; // Untuk menandai kategori yang dipilih di modal input
+        const CONSTANTS = {
+            FIRE_CLASSES: [
+                { class: 'A', desc: 'Bahan padat (kertas, kayu, kain, plastik).', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400', icon: 'box' },
+                { class: 'B', desc: 'Bahan cair (bensin, solar, cat, minyak).', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400', icon: 'droplet' },
+                { class: 'C', desc: 'Gas (butana, metana).', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', icon: 'wind' },
+                { class: 'D', desc: 'Logam (potasium, magnesium).', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400', icon: 'zap' },
+                { class: 'K', desc: 'Minyak masak (kitchen oils).', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400', icon: 'flame' },
+                { class: 'E', desc: 'Elektrikal (komputer, kabel, elektronik).', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400', icon: 'zap' },
+            ],
+            APAR_TYPES: [
+                { name: 'Water (Air)', color: 'bg-red-600', text: 'Merah Terang', effective: 'Kelas A', desc: 'Air bertekanan tinggi.' },
+                { name: 'Foam (Busa)', color: 'bg-yellow-100', text: 'Krem/Kuning', effective: 'Kelas A & B', desc: 'Membentuk lapisan busa penutup api.' },
+                { name: 'Powder (Serbuk)', color: 'bg-blue-600', text: 'Biru', effective: 'A, B, C, E', desc: 'Serbuk kimia kering (Paling Umum).' },
+                { name: 'CO2', color: 'bg-black', text: 'Hitam', effective: 'Listrik & B', desc: 'Gas dingin, tidak meninggalkan residu.' },
+            ],
+            PASS_STEPS: [
+                { step: 'P', title: 'Pull', desc: 'Tarik pin pengaman pada bagian handle.', icon: 'rotate-ccw' },
+                { step: 'A', title: 'Aim', desc: 'Arahkan nozzle ke titik pusat api.', icon: 'shield-check' },
+                { step: 'S', title: 'Squeeze', desc: 'Tekan tuas untuk mengeluarkan isi.', icon: 'activity' },
+                { step: 'S', title: 'Sweep', desc: 'Sapukan media dari sisi ke sisi.', icon: 'wind' },
+            ]
+        };
 
-        // ==========================================================
-        //  BAGIAN 2: INISIALISASI & EVENT LISTENERS
-        // ==========================================================
-        
-        document.addEventListener('DOMContentLoaded', () => {
-            renderCircularMenu(); 
-            renderQuickExpenseButtons(); // Panggil fungsi baru
-            setupGlobalEventListeners(); 
-        });
-        
-        window.openBudgetModal = () => {
-            renderBudgetInputs();
-            budgetModal.style.display = 'flex';
-        }
-        
-        /**
-         * Fungsi untuk memilih kategori di dalam modal input transaksi
-         * @param {string} categoryId ID kategori
-         * @param {HTMLElement} element Elemen tombol kategori yang diklik
-         */
-        window.selectCategoryInModal = (categoryId, element) => {
-            if (currentSelectedCategoryElement) {
-                // Hapus penandaan dari yang sebelumnya
-                currentSelectedCategoryElement.classList.remove('bg-primary', 'text-white', 'scale-105');
-                currentSelectedCategoryElement.classList.add('bg-white', 'text-gray-700');
+        // --- CORE FUNCTIONS ---
+
+        function init() {
+            // Check system preference
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                toggleTheme(true);
             }
-            
-            // Tandai yang baru
-            element.classList.remove('bg-white', 'text-gray-700');
-            element.classList.add('bg-primary', 'text-white', 'scale-105');
-            
-            currentSelectedCategoryElement = element;
-            selectedCategoryIdHidden.value = categoryId;
-            document.getElementById('modal-category').innerText = `(${categories.find(c => c.id === categoryId)?.name || 'Kategori Dipilih'})`;
+
+            // Start Clock
+            setInterval(() => {
+                state.currentTime = new Date();
+                renderHeaderTime();
+            }, 1000);
+
+            // Initial Render
+            renderApp();
         }
 
-        // ==========================================================
-        //  BAGIAN 3: DEFINISI FUNGSI (BERBARIS)
-        // ==========================================================
-        
-        // --- 3.1 Utilitas Dasar ---
-
-        function formatRupiah(angka) {
-            return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
+        function renderApp() {
+            renderHeader();
+            renderMainContent();
+            lucide.createIcons();
         }
 
-        function setupGlobalEventListeners() {
-            window.onclick = function(event) {
-                if (event.target == inputModal) {
-                    closeInputModal();
-                }
-                if (event.target == typeSelectorModal) {
-                    closeTypeSelectorModal();
-                }
-                if (event.target == budgetModal) {
-                    closeBudgetModal();
-                }
-            }
-        }
-        
-        window.updateUI = () => {
-            // Filter data untuk bulan ini
-            const currentMonth = new Date().getMonth();
-            const currentYear = new Date().getFullYear();
-            
-            const transactionsThisMonth = window.transactions.filter(t => {
-                const date = new Date(t.date);
-                return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
-            });
-            
-            const expenses = transactionsThisMonth.filter(t => t.type === 'expense');
-            const incomes = transactionsThisMonth.filter(t => t.type === 'income');
+        // --- ACTIONS ---
 
-            // Hitung & Update Summary Cards
-            const totalExpense = expenses.reduce((sum, t) => sum + t.amount, 0);
-            const totalIncome = incomes.reduce((sum, t) => sum + t.amount, 0);
-            const netBalance = totalIncome - totalExpense;
-
-            document.getElementById('total-income').innerText = formatRupiah(totalIncome);
-            document.getElementById('total-expense-summary').innerText = formatRupiah(totalExpense);
-            document.getElementById('net-balance').innerText = formatRupiah(netBalance);
-            
-            const balanceElement = document.getElementById('net-balance').closest('.bg-primary');
-            balanceElement.classList.remove('bg-green-500', 'bg-red-500', 'bg-primary');
-            balanceElement.classList.add(netBalance >= 0 ? 'bg-green-500' : 'bg-red-500');
-            
-            // Update Chart Center
-            document.getElementById('total-expense-chart').innerText = formatRupiah(totalExpense);
-            document.getElementById('transaction-count').innerText = window.transactions.length;
-
-            // Update List Transaksi & Chart
-            renderTransactionList();
-            updateChart(totalExpense, expenses);
-            updateBudgetRings(expenses);
-        }
-
-        // --- 3.2 Logika Maskot ---
-        
-        window.pokeMascot = (customText = null, isUrgent = false) => {
-            const bubble = document.getElementById('mascot-msg');
-            const texts = ["Alhamdulillah, tercatat! ✨", "Jangan boros ya!", "Sudah sedekah hari ini?", "Yuk dicek saldo bersihnya!"];
-            
-            bubble.innerText = customText || texts[Math.floor(Math.random() * texts.length)];
-            
-            bubble.classList.remove('hidden');
-            
-            if (isUrgent) {
-                bubble.classList.add('animate-pulse-red');
+        function toggleTheme(forceDark = null) {
+            const html = document.documentElement;
+            if (forceDark === true || (forceDark === null && !state.isDarkMode)) {
+                html.classList.add('dark');
+                state.isDarkMode = true;
             } else {
-                bubble.classList.remove('animate-pulse-red');
+                html.classList.remove('dark');
+                state.isDarkMode = false;
             }
-            
-            if (bubbleTimeout) clearTimeout(bubbleTimeout);
-            bubbleTimeout = setTimeout(() => {
-                bubble.classList.add('hidden');
-            }, 5000);
+            // Re-render header to update icon
+            renderHeader();
+            lucide.createIcons();
         }
 
-        // --- 3.3 Logika Modal ---
-        
-        function openTypeSelectorModal() {
-            typeSelectorModal.style.display = 'flex';
+        function setActiveTab(tab) {
+            state.activeTab = tab;
+            renderApp();
         }
 
-        function closeTypeSelectorModal() {
-            typeSelectorModal.style.display = 'none';
-        }
-
-        /**
-         * Membuka modal input transaksi
-         * @param {string} type 'income' atau 'expense'
-         * @param {Object} category Kategori yang dipilih (optional, untuk tombol cepat)
-         * @param {boolean} needsCategoryPicker Apakah perlu menampilkan pemilih kategori (untuk tombol FAB)
-         */
-        function openInputModal(type, category = null, needsCategoryPicker = false) {
-            closeTypeSelectorModal(); 
-            currentSelectedCategoryElement = null; // Reset penanda kategori
-
-            transactionTypeHidden.value = type;
-            amountInput.value = '';
-            noteInput.value = '';
-            
-            const modalTitle = document.getElementById('modal-title');
-            const modalCategory = document.getElementById('modal-category');
-            const modalIcon = document.getElementById('modal-type-icon');
-            const saveButton = document.getElementById('saveButton');
-            
-            // Tampilkan/Sembunyikan Pemilih Kategori
-            if (type === 'expense' && (needsCategoryPicker || !category)) {
-                categoryPickerContainer.classList.remove('hidden');
-                renderCategoryPickerInModal();
-                selectedCategoryIdHidden.value = ''; // Reset
-            } else {
-                categoryPickerContainer.classList.add('hidden');
-            }
-
-            if (type === 'income') {
-                modalTitle.innerText = 'Tambah Pemasukan';
-                modalCategory.innerText = '';
-                modalIcon.innerHTML = `<i class="fas fa-arrow-down"></i>`;
-                modalIcon.className = 'text-green-500';
-                saveButton.className = saveButton.className.replace(/bg-red-500|bg-primary hover:bg-red-400/, 'bg-green-500 hover:bg-green-600');
-                selectedCategoryIdHidden.value = 'income_source'; 
-            } else { // expense
-                modalTitle.innerText = 'Tambah Pengeluaran';
-                modalCategory.innerText = category ? `(${category.name})` : '';
-                modalIcon.innerHTML = `<i class="fas fa-arrow-up"></i>`;
-                modalIcon.className = 'text-red-500';
-                saveButton.className = saveButton.className.replace(/bg-green-500 hover:bg-green-600/, 'bg-primary hover:bg-red-400');
-                selectedCategoryIdHidden.value = category ? category.id : '';
-            }
-
-            inputModal.style.display = 'flex';
-            amountInput.focus();
-        }
-
-        function closeInputModal() {
-            inputModal.style.display = 'none';
-        }
-        
-        function closeBudgetModal() {
-            budgetModal.style.display = 'none';
-        }
-        
-        // --- 3.4 Logika Transaksi & Anggaran ---
-
-        window.saveTransaction = () => {
-            const amount = parseInt(amountInput.value);
-            const note = noteInput.value;
-            const type = transactionTypeHidden.value;
-            const categoryId = selectedCategoryIdHidden.value;
-
-            if (!amount || amount <= 0) {
-                pokeMascot("Masukkan jumlah yang valid (angka positif), Ukhti!");
-                return;
-            }
-            
-            if (type === 'expense' && !categoryId) {
-                pokeMascot("Mohon pilih kategori pengeluaran terlebih dahulu.");
-                return;
-            }
-            
-            if (!window.getTransactionsRef()) {
-                pokeMascot("Gagal menyimpan. Otentikasi belum siap.");
-                return;
-            }
-
-            const transaction = {
-                type: type, // 'income' or 'expense'
-                categoryId: categoryId,
-                amount: amount,
-                note: note || (type === 'income' ? 'Pemasukan Tak Tercatat' : 'Pengeluaran Tak Tercatat'),
-                date: new Date().toISOString()
-            };
-
-            window.addTransactionToFirestore(transaction);
-            
-            closeInputModal();
-            pokeMascot("Alhamdulillah, tercatat! ✨");
-
-            if (type === 'expense') {
-                checkBudgetViolation(categoryId);
+        function triggerFire(id) {
+            const sensor = state.sensors.find(s => s.id === id);
+            if (sensor) {
+                sensor.status = 'FIRE';
+                sensor.temp = 85;
+                sensor.smoke = 450;
+                renderApp();
             }
         }
-        
-        function renderBudgetInputs() {
-            const listContainer = document.getElementById('budget-input-list');
-            listContainer.innerHTML = '';
+
+        function resetSimulation() {
+            state.sensors = [
+                { id: 1, location: 'Dapur', pressure: 95, temp: 28, smoke: 5, status: 'SAFE' },
+                { id: 2, location: 'Ruang Tamu', pressure: 88, temp: 26, smoke: 2, status: 'SAFE' },
+                { id: 3, location: 'Garasi', pressure: 45, temp: 30, smoke: 10, status: 'SAFE' },
+                { id: 4, location: 'Halaman Depan', pressure: 92, temp: 29, smoke: 1, status: 'SAFE' },
+            ];
+            state.selectedRoomId = null;
+            renderApp();
+        }
+
+        function setSelectedRoom(id) {
+            state.selectedRoomId = id;
+            renderApp();
+        }
+
+        // --- RENDERERS ---
+
+        function renderHeader() {
+            const isAlert = state.sensors.some(s => s.status === 'FIRE');
+            const container = document.getElementById('header-container');
             
-            categories.forEach(cat => {
-                const currentBudget = window.budgets[cat.id] || 0;
-                const div = document.createElement('div');
-                div.className = 'flex items-center bg-gray-50 rounded-xl p-3 shadow-inner';
-                div.innerHTML = `
-                    <i class="fas ${cat.icon} mr-3 text-lg" style="color: ${cat.color}"></i>
-                    <span class="font-semibold w-1/3">${cat.name}</span>
-                    <div class="relative flex-grow">
-                        <span class="absolute left-2 top-2 text-xs text-gray-400 font-bold">Rp</span>
-                        <input 
-                            type="number" 
-                            id="budget-input-${cat.id}" 
-                            class="w-full bg-white border border-gray-200 rounded-lg py-2 pl-8 pr-2 text-sm font-bold text-gray-700 focus:outline-none focus:ring-1 focus:ring-accent" 
-                            placeholder="0" 
-                            value="${currentBudget > 0 ? currentBudget : ''}"
-                        >
+            let alertHtml = '';
+            if (isAlert) {
+                alertHtml = `
+                    <div class="bg-red-600 text-white text-center py-3 font-bold animate-pulse flex justify-center items-center gap-2 shadow-lg z-50 relative">
+                        <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+                        PERINGATAN: KEBAKARAN TERDETEKSI! SEGERA EVAKUASI & GUNAKAN APAR!
                     </div>
                 `;
-                listContainer.appendChild(div);
-            });
-        }
-
-        window.saveBudgets = () => {
-            const newBudgets = {};
-            let hasChanges = false;
-            
-            categories.forEach(cat => {
-                const input = document.getElementById(`budget-input-${cat.id}`);
-                const amount = parseInt(input.value) || 0;
-                newBudgets[cat.id] = amount;
-                
-                if (window.budgets[cat.id] !== amount) {
-                    hasChanges = true;
-                }
-            });
-            
-            if (hasChanges) {
-                window.saveBudgetsToFirestore(newBudgets);
-            } else {
-                pokeMascot("Tidak ada perubahan anggaran yang disimpan.");
             }
-            
-            closeBudgetModal();
-        }
-        
-        function checkBudgetViolation(categoryId) {
-            if (!window.budgets || !window.transactions) return;
 
-            const currentMonthExpenses = window.transactions
-                .filter(t => t.type === 'expense' && new Date(t.date).getMonth() === new Date().getMonth());
-                
-            const catTotal = currentMonthExpenses
-                .filter(t => t.categoryId === categoryId)
-                .reduce((sum, t) => sum + t.amount, 0);
+            const themeIcon = state.isDarkMode ? 'sun' : 'moon';
 
-            const budget = window.budgets[categoryId] || 0;
-
-            if (budget > 0 && catTotal > budget) {
-                pokeMascot(`⚠️ Anggaran kategori ${categories.find(c => c.id === categoryId)?.name || 'ini'} SUDAH MELEBIHI batas! 💔`, true);
-            }
-        }
-
-        // --- 3.5 Logika Rendering UI Kompleks ---
-
-        function renderCircularMenu() {
-            const container = document.getElementById('circle-menu');
-            const radius = 135; // Jarak dari pusat
-            const centerX = 160; 
-            const centerY = 160; 
-            const step = (2 * Math.PI) / categories.length;
-
-            categories.forEach((cat, index) => {
-                const angle = index * step - (Math.PI / 2); // Mulai dari atas (jam 12)
-                const x = Math.round(centerX + radius * Math.cos(angle) - 30); 
-                const y = Math.round(centerY + radius * Math.sin(angle) - 30);
-
-                const btn = document.createElement('div');
-                btn.id = `cat-btn-${cat.id}`;
-                btn.className = 'category-btn';
-                btn.style.left = `${x}px`;
-                btn.style.top = `${y}px`;
-                btn.innerHTML = `
-                    <div class="budget-fill" id="fill-${cat.id}" style="height: 0%; background-color: ${cat.color}33;"></div>
-                    <div class="budget-ring" id="ring-${cat.id}" style="box-shadow: inset 0 0 0 4px #ccc;"></div>
-                    <div class="relative z-20 w-full h-full rounded-full flex items-center justify-center bg-white shadow-inner">
-                        <i class="fas ${cat.icon} text-lg" style="color: ${cat.color}"></i>
-                    </div>
-                `;
-                
-                // Hapus event listener di sini karena tombol cepat dipindah ke bawah
-                // btn.onclick = () => openInputModal('expense', cat);
-
-                container.appendChild(btn);
-            });
-        }
-        
-        function renderQuickExpenseButtons() {
-            const container = document.getElementById('quick-expense-buttons');
-            container.innerHTML = '';
-            
-            categories.forEach(cat => {
-                const button = document.createElement('button');
-                button.className = 'flex flex-col items-center p-2 rounded-xl hover:bg-gray-100 transition transform active:scale-95';
-                button.innerHTML = `
-                    <div class="w-10 h-10 rounded-full flex items-center justify-center bg-white shadow-md mb-1 border-2" style="border-color: ${cat.color}; color: ${cat.color};">
-                        <i class="fas ${cat.icon} text-lg"></i>
-                    </div>
-                    <span class="text-[10px] font-semibold text-gray-600">${cat.name}</span>
-                `;
-                
-                // Gunakan openInputModal langsung dengan kategori
-                button.onclick = () => openInputModal('expense', cat);
-                container.appendChild(button);
-            });
-        }
-        
-        function renderCategoryPickerInModal() {
-            const pickerContainer = document.getElementById('category-picker-buttons');
-            pickerContainer.innerHTML = '';
-            
-            categories.forEach(cat => {
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.className = 'flex flex-col items-center p-2 rounded-xl transition transform active:scale-95 bg-white text-gray-700 shadow-sm';
-                button.innerHTML = `
-                    <i class="fas ${cat.icon} text-lg mb-1" style="color: ${cat.color};"></i>
-                    <span class="text-[8px] font-semibold">${cat.name}</span>
-                `;
-                
-                // Tambahkan event listener untuk memilih kategori di dalam modal
-                button.onclick = () => window.selectCategoryInModal(cat.id, button);
-                pickerContainer.appendChild(button);
-            });
-        }
-
-        function renderTransactionList() {
-            const listContainer = document.getElementById('transaction-list');
-            listContainer.innerHTML = '';
-
-            if (window.transactions.length === 0) {
-                listContainer.innerHTML = '<div class="text-center text-gray-400 text-sm py-4">Belum ada transaksi</div>';
-            } else {
-                window.transactions.slice(0, 7).forEach(t => { 
-                    const isExpense = t.type === 'expense';
-                    const cat = categories.find(c => c.id === t.categoryId) || { icon: 'fa-sack-dollar', color: '#34D399', name: 'Pemasukan' };
-                    const item = document.createElement('div');
-                    
-                    const amountColor = isExpense ? 'text-red-400' : 'text-green-500';
-                    const sign = isExpense ? '-' : '+';
-                    const borderColor = isExpense ? cat.color : '#34D399'; // Green for income
-                    
-                    item.className = 'flex justify-between items-center bg-gray-50 p-3 rounded-xl border-l-4 border-transparent hover:bg-white hover:shadow-sm transition';
-                    item.style.borderLeftColor = borderColor;
-                    
-                    item.innerHTML = `
-                        <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 rounded-full flex items-center justify-center bg-white shadow-sm" style="color: ${borderColor}">
-                                <i class="fas ${cat.icon} text-xs"></i>
+            container.innerHTML = `
+                ${alertHtml}
+                <div class="bg-white dark:bg-slate-900 shadow-sm border-b border-slate-200 dark:border-slate-800 transition-colors duration-300">
+                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <div class="flex justify-between items-center h-16">
+                            <div class="flex items-center gap-3">
+                                <div class="bg-red-600 p-2 rounded-lg text-white shadow-md">
+                                    <i data-lucide="shield-check" class="w-6 h-6"></i>
+                                </div>
+                                <div>
+                                    <h1 class="text-xl font-bold text-slate-900 dark:text-white leading-none">Smart-Home Fire Shield</h1>
+                                    <p class="text-xs text-slate-500 dark:text-slate-400">Sistem Mitigasi & Edukasi Bencana</p>
+                                </div>
                             </div>
-                            <div>
-                                <p class="text-sm font-bold text-gray-700">${t.note}</p>
-                                <p class="text-[10px] text-gray-400">${new Date(t.date).toLocaleDateString('id-ID')}</p>
+                            
+                            <!-- Desktop Nav -->
+                            <div class="hidden md:flex gap-4 items-center">
+                                ${renderNavButton('dashboard', 'layout-dashboard', 'Monitoring')}
+                                ${renderNavButton('visual3d', 'map', 'Denah & Visual 3D')}
+                                ${renderNavButton('education', 'book-open', 'Edukasi APAR')}
+                                
+                                <div class="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-2"></div>
+
+                                <button onclick="toggleTheme()" class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="Ubah Mode">
+                                    <i data-lucide="${themeIcon}" class="w-5 h-5"></i>
+                                </button>
+                            </div>
+                            
+                            <!-- Time & Mobile Toggle -->
+                            <div class="flex items-center gap-4 sm:hidden">
+                                <button onclick="toggleTheme()" class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                                    <i data-lucide="${themeIcon}" class="w-5 h-5"></i>
+                                </button>
+                            </div>
+
+                            <div class="text-right hidden sm:block" id="header-time">
+                                ${getFormattedTime()}
                             </div>
                         </div>
-                        <p class="font-bold ${amountColor} text-sm">${sign} ${formatRupiah(t.amount)}</p>
-                    `;
-                    listContainer.appendChild(item);
-                });
-            }
-        }
-        
-        function updateBudgetRings(expenses) {
-            const catTotals = {};
-            let isAnyBudgetWarn = false;
-            let isAnyBudgetDanger = false;
-            
-            expenses.forEach(t => {
-                catTotals[t.categoryId] = (catTotals[t.categoryId] || 0) + t.amount;
-            });
-
-            categories.forEach(cat => {
-                const totalSpent = catTotals[cat.id] || 0;
-                const budgetLimit = window.budgets[cat.id] || 0;
-                
-                const ringElement = document.getElementById(`ring-${cat.id}`);
-                const fillElement = document.getElementById(`fill-${cat.id}`);
-                
-                if (ringElement && fillElement) {
-                    let ringColor = '#ccc';
-                    let fillHeight = 0;
+                    </div>
                     
-                    if (budgetLimit > 0) {
-                        const ratio = totalSpent / budgetLimit;
-                        fillHeight = Math.min(ratio * 100, 100);
+                    <!-- Mobile Nav -->
+                    <div class="flex md:hidden border-t border-slate-100 dark:border-slate-800">
+                        ${renderMobileNavButton('dashboard', 'Monitoring')}
+                        ${renderMobileNavButton('visual3d', 'Denah')}
+                        ${renderMobileNavButton('education', 'Edukasi')}
+                    </div>
+                </div>
+            `;
+        }
 
-                        if (ratio >= 1.0) {
-                            ringColor = getComputedStyle(document.documentElement).getPropertyValue('--tw-colors-budget-danger');
-                            isAnyBudgetDanger = true;
-                            fillElement.classList.add('animate-pulse-red');
-                        } else if (ratio >= 0.8) {
-                            ringColor = getComputedStyle(document.documentElement).getPropertyValue('--tw-colors-budget-warn');
-                            isAnyBudgetWarn = true;
-                            fillElement.classList.remove('animate-pulse-red');
-                        } else {
-                            ringColor = getComputedStyle(document.documentElement).getPropertyValue('--tw-colors-budget-safe');
-                            fillElement.classList.remove('animate-pulse-red');
-                        }
-                    } else {
-                        if (totalSpent > 0) {
-                             ringColor = '#999';
-                        }
-                        fillElement.classList.remove('animate-pulse-red');
-                    }
+        function renderNavButton(tabName, iconName, label) {
+            const isActive = state.activeTab === tabName;
+            const classes = isActive 
+                ? 'bg-slate-100 dark:bg-slate-800 text-red-600 dark:text-red-400' 
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/50';
+            
+            return `
+                <button onclick="setActiveTab('${tabName}')" 
+                    class="px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${classes}">
+                    <i data-lucide="${iconName}" class="w-4 h-4"></i> ${label}
+                </button>
+            `;
+        }
+
+        function renderMobileNavButton(tabName, label) {
+            const isActive = state.activeTab === tabName;
+            const classes = isActive 
+                ? 'text-red-600 dark:text-red-400 bg-slate-50 dark:bg-slate-800' 
+                : 'text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900';
+            return `<button onclick="setActiveTab('${tabName}')" class="flex-1 py-3 text-center text-sm font-medium ${classes} transition-colors">${label}</button>`;
+        }
+
+        function renderHeaderTime() {
+            const el = document.getElementById('header-time');
+            if (el) el.innerHTML = getFormattedTime();
+        }
+
+        function getFormattedTime() {
+            const timeStr = state.currentTime.toLocaleTimeString('id-ID');
+            const dateStr = state.currentTime.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            return `
+                <div class="text-sm font-bold text-slate-700 dark:text-slate-200">${timeStr}</div>
+                <div class="text-xs text-slate-500 dark:text-slate-400">${dateStr}</div>
+            `;
+        }
+
+        function renderMainContent() {
+            const main = document.getElementById('main-content');
+            
+            if (state.activeTab === 'dashboard') {
+                main.innerHTML = renderDashboard();
+            } else if (state.activeTab === 'visual3d') {
+                main.innerHTML = renderVisual3D();
+            } else if (state.activeTab === 'education') {
+                main.innerHTML = renderEducation();
+            }
+        }
+
+        // --- TAB: DASHBOARD ---
+
+        function renderDashboard() {
+            return `
+                <div class="space-y-8 animate-fade-in">
+                    <div class="flex flex-col md:flex-row justify-between items-end md:items-center gap-4">
+                        <div>
+                            <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Status Monitoring Real-time</h2>
+                            <p class="text-slate-500 dark:text-slate-400">Memantau kondisi APAR dan sensor lingkungan di rumah Anda.</p>
+                        </div>
+                        <button onclick="resetSimulation()" class="px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white rounded-lg text-sm font-medium hover:bg-slate-700 dark:hover:bg-slate-600 transition-colors flex items-center gap-2 shadow-sm">
+                            <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Reset Sistem
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        ${state.sensors.map(sensor => renderSensorCard(sensor)).join('')}
+                    </div>
+
+                    <div class="bg-gradient-to-r from-blue-600 to-blue-800 dark:from-blue-900 dark:to-slate-900 rounded-2xl p-6 text-white shadow-xl">
+                        <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+                            <div class="flex items-center gap-4">
+                                <div class="bg-white/20 p-3 rounded-full">
+                                    <i data-lucide="activity" class="w-8 h-8 text-white"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-bold">Laporan Sistem Harian</h3>
+                                    <p class="text-blue-100 text-sm">Semua sensor aktif. Koneksi IoT stabil.</p>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-3 gap-8 text-center">
+                                <div>
+                                    <div class="text-2xl font-bold">4</div>
+                                    <div class="text-xs text-blue-200 uppercase">Unit APAR</div>
+                                </div>
+                                <div>
+                                    <div class="text-2xl font-bold">100%</div>
+                                    <div class="text-xs text-blue-200 uppercase">Baterai Sensor</div>
+                                </div>
+                                <div>
+                                    <div class="text-2xl font-bold">24j</div>
+                                    <div class="text-xs text-blue-200 uppercase">Waktu Aktif</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderSensorCard(data) {
+            const isDanger = data.status === 'FIRE';
+            const isLowPressure = data.pressure < 30;
+            const containerClass = isDanger 
+                ? 'bg-red-50 dark:bg-red-900/20 border-red-500 animate-pulse' 
+                : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700';
+            
+            const statusBadge = isDanger 
+                ? '<span class="px-2 py-1 rounded text-xs font-bold bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200">BAHAYA</span>'
+                : '<span class="px-2 py-1 rounded text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300">AMAN</span>';
+
+            const fireBadge = isDanger 
+                ? '<div class="absolute -top-3 -right-3 bg-red-600 text-white px-3 py-1 rounded-full text-xs font-bold animate-bounce shadow-md z-10">KEBAKARAN!</div>' 
+                : '';
+
+            const pressureColor = data.pressure > 70 ? 'bg-green-500' : data.pressure > 30 ? 'bg-yellow-500' : 'bg-red-500';
+
+            return `
+                <div class="relative p-6 rounded-2xl border-2 transition-all duration-300 shadow-lg ${containerClass}">
+                    ${fireBadge}
                     
-                    ringElement.style.boxShadow = `inset 0 0 0 4px ${ringColor}`;
-                    fillElement.style.height = `${fillHeight}%`;
-                }
-            });
-            
-            const statusElement = document.getElementById('budget-status');
-            statusElement.classList.remove('text-budget-safe', 'text-budget-warn', 'text-budget-danger', 'text-gray-700');
-            
-            if (isAnyBudgetDanger) {
-                statusElement.innerText = 'Anggaran DILANGGAR! 🚨';
-                statusElement.classList.add('text-budget-danger');
-            } else if (isAnyBudgetWarn) {
-                statusElement.innerText = 'Anggaran Hampir Habis! ⚠️';
-                statusElement.classList.add('text-budget-warn');
-            } else {
-                statusElement.innerText = 'Anggaran Aman. 👍';
-                statusElement.classList.add('text-budget-safe');
-            }
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                            <i data-lucide="home" class="w-5 h-5 text-slate-500 dark:text-slate-400"></i>
+                            ${data.location}
+                        </h3>
+                        ${statusBadge}
+                    </div>
+
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex items-center justify-between text-sm text-slate-500 dark:text-slate-400 mb-1">
+                                <span class="flex items-center gap-1"><i data-lucide="activity" class="w-4 h-4"></i> Tekanan APAR</span>
+                                ${isLowPressure ? '<span class="text-red-500 font-bold text-xs">PERLU ISI ULANG</span>' : ''}
+                            </div>
+                            <!-- Progress Bar -->
+                            <div class="w-full">
+                                <div class="flex justify-between mb-1">
+                                    <span class="text-sm font-medium text-slate-700 dark:text-slate-300"></span>
+                                    <span class="text-sm font-medium text-slate-700 dark:text-slate-300">${data.pressure}%</span>
+                                </div>
+                                <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5">
+                                    <div class="h-2.5 rounded-full ${pressureColor}" style="width: ${data.pressure}%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4 mt-4">
+                            <div class="bg-slate-50 dark:bg-slate-700/50 p-3 rounded-xl flex flex-col items-center justify-center">
+                                <i data-lucide="thermometer" class="w-6 h-6 mb-1 ${data.temp > 50 ? 'text-red-500' : 'text-blue-500 dark:text-blue-400'}"></i>
+                                <span class="text-xs text-slate-500 dark:text-slate-400">Suhu</span>
+                                <span class="font-bold text-slate-700 dark:text-slate-200">${data.temp}°C</span>
+                            </div>
+                            <div class="bg-slate-50 dark:bg-slate-700/50 p-3 rounded-xl flex flex-col items-center justify-center">
+                                <i data-lucide="wind" class="w-6 h-6 mb-1 ${data.smoke > 20 ? 'text-gray-700 dark:text-gray-400' : 'text-green-500 dark:text-green-400'}"></i>
+                                <span class="text-xs text-slate-500 dark:text-slate-400">Asap (PPM)</span>
+                                <span class="font-bold text-slate-700 dark:text-slate-200">${data.smoke}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 pt-4 border-t border-slate-100 dark:border-slate-700 flex gap-2">
+                        <button onclick="triggerFire(${data.id})" class="flex-1 bg-red-100 hover:bg-red-200 dark:bg-red-900/40 dark:hover:bg-red-900/60 text-red-700 dark:text-red-300 text-xs py-2 rounded-lg font-semibold transition-colors">
+                            Simulasi Api
+                        </button>
+                    </div>
+                </div>
+            `;
         }
 
-        function updateChart(totalExpense, expenses) {
-            const donutChart = document.getElementById('donutChart');
-            if (totalExpense === 0) {
-                donutChart.style.background = `conic-gradient(#f3f4f6 0% 100%)`;
-                return;
-            }
+        // --- TAB: VISUAL 3D ---
 
-            let currentAngle = 0;
-            let gradientString = [];
-            
-            const catTotals = {};
-            expenses.forEach(t => {
-                catTotals[t.categoryId] = (catTotals[t.categoryId] || 0) + t.amount;
-            });
+        function renderVisual3D() {
+            const selectedRoom = state.selectedRoomId ? state.sensors.find(s => s.id === state.selectedRoomId) : null;
 
-            categories.forEach(cat => {
-                const amount = catTotals[cat.id] || 0;
-                if (amount > 0) {
-                    const percentage = (amount / totalExpense) * 100;
-                    const endAngle = currentAngle + percentage;
-                    gradientString.push(`${cat.color} ${currentAngle}% ${endAngle}%`);
-                    currentAngle = endAngle;
-                }
-            });
+            return `
+                <div class="space-y-6 animate-fade-in">
+                     <div class="flex flex-col md:flex-row justify-between items-end md:items-center gap-4">
+                        <div>
+                            <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Denah & Visualisasi Unit</h2>
+                            <p class="text-slate-500 dark:text-slate-400">Peta lokasi APAR dalam rumah dan visualisasi bentuk fisik unit.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex flex-col lg:flex-row gap-8">
+                        <!-- Floor Plan -->
+                        <div class="flex-1 bg-slate-900 p-8 rounded-2xl shadow-inner relative overflow-hidden min-h-[400px] border border-slate-800">
+                            <div class="absolute top-4 left-4 text-white/50 text-sm font-mono">
+                                FLOOR PLAN // LEVEL 1 <br/> SMART HOME SYSTEM
+                            </div>
+                            
+                            <div class="w-full max-w-md mx-auto aspect-square grid grid-cols-2 grid-rows-2 gap-2 p-2 bg-slate-800/50 border-2 border-slate-700 mt-8">
+                                ${renderRoom(state.sensors[0], 'DAPUR', 'bottom-2 right-2')}
+                                ${renderRoom(state.sensors[1], 'R. TAMU', 'top-2 right-2', true)}
+                                ${renderRoom(state.sensors[2], 'GARASI', 'bottom-2 left-2')}
+                                ${renderRoom(state.sensors[3], 'HALAMAN', 'top-2 left-1/2', false, true)}
+                            </div>
+                            <div class="mt-4 text-center text-slate-500 text-xs">
+                                Klik ruangan untuk melihat detail APAR
+                            </div>
+                        </div>
 
-            if (gradientString.length > 0) {
-                donutChart.style.background = `conic-gradient(${gradientString.join(', ')})`;
-            }
+                        <!-- 3D Visual Panel -->
+                        <div class="w-full lg:w-80 bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 transition-colors">
+                            <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                                <i data-lucide="box" class="w-5 h-5"></i> Visualisasi Unit
+                            </h3>
+                            ${selectedRoom ? render3DDetail(selectedRoom) : renderEmpty3DState()}
+                        </div>
+                    </div>
+                </div>
+            `;
         }
+
+        function renderRoom(sensor, name, aparPosClass, hasDoor = false, dashed = false) {
+            const isSelected = state.selectedRoomId === sensor.id;
+            const borderClass = dashed ? 'border-dashed border-slate-600 bg-slate-900/50' : 'border-slate-600 bg-slate-800/80';
+            const selectedClass = isSelected ? (dashed ? 'ring-2 ring-blue-500' : 'ring-2 ring-blue-500 bg-slate-700') : '';
+            
+            const icon = sensor.status === 'FIRE' 
+                ? '<i data-lucide="flame" class="w-8 h-8 text-red-500 animate-bounce absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></i>'
+                : '<i data-lucide="shield-check" class="w-6 h-6 text-green-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></i>';
+
+            const doorHtml = hasDoor ? '<div class="absolute bottom-0 right-0 w-12 h-1 bg-slate-500"></div>' : '';
+
+            return `
+                <div onclick="setSelectedRoom(${sensor.id})" 
+                    class="relative border p-2 cursor-pointer transition-all hover:bg-slate-700 ${borderClass} ${selectedClass}">
+                    <span class="text-xs text-slate-400 font-mono absolute top-2 left-2">${name}</span>
+                    ${doorHtml}
+                    ${icon}
+                    <div class="absolute ${aparPosClass} w-3 h-3 rounded-full bg-red-600 shadow-[0_0_10px_rgba(220,38,38,0.8)] animate-pulse" title="Posisi APAR"></div>
+                </div>
+            `;
+        }
+
+        function renderEmpty3DState() {
+            return `
+                <div class="h-64 flex flex-col items-center justify-center text-slate-400 text-center p-4">
+                    <i data-lucide="map" class="w-12 h-12 mb-2 opacity-20"></i>
+                    <p class="text-sm">Pilih ruangan pada denah untuk melihat detail visual APAR.</p>
+                </div>
+            `;
+        }
+
+        function render3DDetail(data) {
+            const statusClass = data.status === 'SAFE' 
+                ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' 
+                : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300';
+            const statusText = data.status === 'SAFE' ? 'Standby' : 'ACTIVE';
+
+            return `
+                <div class="animate-fade-in">
+                    <div class="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 mb-4 border border-slate-100 dark:border-slate-600">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Lokasi</span>
+                            <span class="text-sm font-bold text-slate-800 dark:text-slate-200">${data.location}</span>
+                        </div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Status</span>
+                            <span class="text-xs font-bold px-2 py-0.5 rounded ${statusClass}">${statusText}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Tekanan</span>
+                            <span class="text-sm font-bold text-blue-600 dark:text-blue-400">${data.pressure}%</span>
+                        </div>
+                    </div>
+
+                    <div class="border-t border-slate-100 dark:border-slate-700 pt-4">
+                        <!-- CSS 3D APAR MODEL -->
+                        <div class="w-32 h-64 relative mx-auto my-8 perspective-1000 group cursor-pointer">
+                            <div class="relative w-full h-full preserve-3d transition-transform duration-1000 group-hover-rotate-y-180">
+                                <!-- Tank Body -->
+                                <div class="absolute inset-x-4 bottom-0 h-48 bg-gradient-to-r from-red-700 via-red-500 to-red-700 rounded-b-3xl rounded-t-lg shadow-xl flex items-center justify-center">
+                                    <div class="absolute inset-x-0 top-10 bottom-10 bg-white/20 blur-sm"></div>
+                                    <div class="w-16 h-24 bg-white opacity-80 flex flex-col items-center justify-center p-1 text-[8px] text-center border border-slate-200">
+                                        <span class="font-bold text-black scale-75 block">APAR</span>
+                                        <span class="font-bold text-red-600 scale-75 block">POWDER</span>
+                                        <div class="w-full h-1 bg-black my-1"></div>
+                                        <div class="w-full h-1 bg-green-500 my-0.5"></div>
+                                    </div>
+                                </div>
+                                <!-- Nozzle/Head -->
+                                <div class="absolute left-1/2 -translate-x-1/2 top-10 w-8 h-8 bg-black rounded-sm"></div>
+                                <div class="absolute left-1/2 -translate-x-1/2 top-6 w-12 h-2 bg-black"></div>
+                                <div class="absolute left-1/2 -translate-x-1/2 top-4 w-2 h-6 bg-slate-400"></div>
+                                <!-- Hose -->
+                                <div class="absolute right-6 top-12 w-8 h-32 border-r-4 border-b-4 border-black rounded-br-3xl pointer-events-none"></div>
+                            </div>
+                            <div class="absolute -bottom-4 left-1/2 -translate-x-1/2 w-24 h-4 bg-black/20 blur-md rounded-full"></div>
+                        </div>
+
+                        <p class="text-center text-xs text-slate-400 mt-2">
+                            Model: ABC Dry Chemical Powder 3kg <br/>
+                            <span class="italic">Hover untuk memutar pandangan</span>
+                        </p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- TAB: EDUCATION ---
+
+        function renderEducation() {
+            const passStepsHtml = CONSTANTS.PASS_STEPS.map(step => `
+                <div class="bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-4xl font-black text-slate-100 dark:text-slate-700">${step.step}</span>
+                        <div class="bg-red-50 dark:bg-red-900/20 p-2 rounded-lg text-red-600 dark:text-red-400">
+                            <i data-lucide="${step.icon}" class="w-8 h-8"></i>
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-bold text-slate-800 dark:text-white mb-2">${step.title}</h3>
+                    <p class="text-slate-600 dark:text-slate-400 text-sm">${step.desc}</p>
+                </div>
+            `).join('');
+
+            const fireClassesHtml = CONSTANTS.FIRE_CLASSES.map(item => `
+                <div class="p-4 flex items-start gap-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center font-bold ${item.color}">
+                        ${item.class}
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-slate-800 dark:text-slate-200">Kelas ${item.class}</h4>
+                        <p class="text-sm text-slate-600 dark:text-slate-400">${item.desc}</p>
+                    </div>
+                </div>
+            `).join('');
+
+            const aparTypesHtml = CONSTANTS.APAR_TYPES.map(type => `
+                <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 flex items-center justify-between shadow-sm">
+                    <div class="flex items-center gap-3">
+                        <div class="w-4 h-4 rounded-full ${type.color === 'bg-black' ? 'bg-slate-800 dark:bg-slate-900' : type.color}"></div>
+                        <div>
+                            <h4 class="font-bold text-slate-800 dark:text-slate-200">${type.name}</h4>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">${type.desc}</p>
+                        </div>
+                    </div>
+                    <span class="text-xs font-semibold px-2 py-1 bg-slate-100 dark:bg-slate-700 rounded text-slate-600 dark:text-slate-300">
+                        ${type.effective}
+                    </span>
+                </div>
+            `).join('');
+
+            return `
+                <div class="space-y-12 animate-fade-in pb-12">
+                    
+                    <!-- Hero -->
+                    <div class="bg-white dark:bg-slate-800 rounded-2xl p-8 shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col md:flex-row items-center gap-8 transition-colors">
+                        <div class="flex-1">
+                            <span class="inline-block px-3 py-1 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded-full text-xs font-bold mb-4">EDUKASI KESELAMATAN</span>
+                            <h2 class="text-3xl font-bold text-slate-900 dark:text-white mb-4">Apa itu APAR?</h2>
+                            <p class="text-slate-600 dark:text-slate-300 leading-relaxed mb-4">
+                                Menurut <strong>Permenaker No: PER.04/MEN/1980</strong>, Alat Pemadam Api Ringan (APAR) adalah alat yang ringan serta mudah dilayani oleh satu orang untuk memadamkan api pada awal terjadi kebakaran.
+                            </p>
+                            <div class="bg-slate-50 dark:bg-slate-700/50 border-l-4 border-red-500 p-4 rounded-r-lg">
+                                <p class="text-sm text-slate-700 dark:text-slate-300 italic">
+                                    "APAR didesain untuk pertolongan pertama pada kebakaran kecil, bukan untuk kebakaran besar yang sudah tidak terkendali."
+                                </p>
+                            </div>
+                        </div>
+                        <div class="w-full md:w-1/3 flex justify-center">
+                            <div class="w-48 h-48 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center">
+                                <i data-lucide="flame" class="w-24 h-24 text-red-500"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PASS Method -->
+                    <div>
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="bg-red-600 w-1 h-8 rounded-full"></div>
+                            <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Teknik Penggunaan (Metode PASS)</h2>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                            ${passStepsHtml}
+                        </div>
+                    </div>
+
+                    <!-- Classification & Types Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div>
+                            <div class="flex items-center gap-3 mb-6">
+                                <div class="bg-blue-600 w-1 h-8 rounded-full"></div>
+                                <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Klasifikasi Kebakaran</h2>
+                            </div>
+                            <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
+                                <div class="divide-y divide-slate-100 dark:divide-slate-700">
+                                    ${fireClassesHtml}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-8">
+                            <!-- Types -->
+                            <div>
+                                <div class="flex items-center gap-3 mb-6">
+                                    <div class="bg-green-600 w-1 h-8 rounded-full"></div>
+                                    <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Jenis-Jenis APAR</h2>
+                                </div>
+                                <div class="space-y-3">
+                                    ${aparTypesHtml}
+                                </div>
+                            </div>
+
+                            <!-- Rules -->
+                            <div>
+                                <div class="flex items-center gap-3 mb-6">
+                                    <div class="bg-yellow-500 w-1 h-8 rounded-full"></div>
+                                    <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Aturan Pemasangan</h2>
+                                </div>
+                                <div class="bg-slate-800 dark:bg-slate-900 text-white p-6 rounded-xl shadow-lg border border-slate-700 dark:border-slate-800">
+                                    <ul class="space-y-4">
+                                        <li class="flex items-start gap-3">
+                                            <i data-lucide="check-circle" class="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5"></i>
+                                            <span class="text-sm">Mudah diakses dan tidak terhalang benda lain.</span>
+                                        </li>
+                                        <li class="flex items-start gap-3">
+                                            <i data-lucide="check-circle" class="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5"></i>
+                                            <span class="text-sm">Jarak min. 15 cm dari lantai (ideal 125 cm).</span>
+                                        </li>
+                                        <li class="flex items-start gap-3">
+                                            <i data-lucide="thermometer" class="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5"></i>
+                                            <span class="text-sm">Hindari suhu ekstrim (&gt;49°C atau &lt;-44°C).</span>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tips -->
+                    <div class="bg-yellow-50 dark:bg-yellow-900/10 rounded-2xl p-8 border border-yellow-100 dark:border-yellow-900/30">
+                        <div class="flex items-center gap-3 mb-6">
+                            <i data-lucide="info" class="w-6 h-6 text-yellow-600 dark:text-yellow-500"></i>
+                            <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Tips Perawatan & Keselamatan</h2>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div>
+                                <h3 class="font-bold text-slate-800 dark:text-slate-200 mb-3 border-b border-yellow-200 dark:border-yellow-800 pb-2">Saat Menggunakan</h3>
+                                <ul class="space-y-2 text-sm text-slate-700 dark:text-slate-300">
+                                    <li class="flex gap-2"><div class="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-1.5"></div>Gunakan hanya jika api masih kecil.</li>
+                                    <li class="flex gap-2"><div class="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-1.5"></div>Pastikan petugas pemadam telah dipanggil.</li>
+                                    <li class="flex gap-2"><div class="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-1.5"></div>Jaga jarak 1.5 - 3 meter dari sumber api.</li>
+                                    <li class="flex gap-2"><div class="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-1.5"></div>Jangan melawan arah angin.</li>
+                                </ul>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-slate-800 dark:text-slate-200 mb-3 border-b border-yellow-200 dark:border-yellow-800 pb-2">Rutinitas Perawatan</h3>
+                                <ul class="space-y-2 text-sm text-slate-700 dark:text-slate-300">
+                                    <li class="flex gap-2"><div class="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-1.5"></div>Cek jarum tekanan secara berkala (harus di area hijau).</li>
+                                    <li class="flex gap-2"><div class="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-1.5"></div>Kocok tabung powder sebulan sekali agar tidak menggumpal.</li>
+                                    <li class="flex gap-2"><div class="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-1.5"></div>Cek tanggal kadaluwarsa dan isi ulang setahun sekali.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- INIT ---
+        window.addEventListener('DOMContentLoaded', init);
+
     </script>
 </body>
 </html>
