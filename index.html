@@ -107,19 +107,16 @@
         };
 
         // --- GLOBAL FUNCTIONS EXPORT ---
-        // Karena type="module", kita perlu meng-attach fungsi ke window agar bisa dipanggil HTML onclick
         window.setActiveTab = (tab) => {
             state.activeTab = tab;
-            // Stop previous animation loop if leaving visual3d tab
             if (state.animationId) {
                 cancelAnimationFrame(state.animationId);
                 state.animationId = null;
             }
             renderApp();
             
-            // Jika masuk ke tab visual3d, inisialisasi 3D
             if (tab === 'visual3d' && state.selectedRoomId) {
-                setTimeout(init3DModel, 100); // Delay sedikit agar DOM siap
+                setTimeout(init3DModel, 100);
             }
         };
 
@@ -166,7 +163,6 @@
         window.setSelectedRoom = (id) => {
             state.selectedRoomId = id;
             renderApp();
-            // Init 3D saat ruangan dipilih
             setTimeout(init3DModel, 100);
         };
 
@@ -193,7 +189,6 @@
         function playAlarm() {
             const audio = document.getElementById('alarm-sound');
             if (audio) {
-                // Gunakan promise untuk menangani error jika file tidak ditemukan atau autoplay diblokir
                 const playPromise = audio.play();
                 if (playPromise !== undefined) {
                     playPromise.catch(error => {
@@ -214,20 +209,17 @@
         // --- 3D LOADING LOGIC ---
         function init3DModel() {
             const container = document.getElementById('model-3d-container');
-            if (!container) return; // Container belum ada atau tab lain
+            if (!container) return;
 
-            // Bersihkan container jika ada canvas lama
             container.innerHTML = '';
             
-            // 1. Scene Setup
             const scene = new THREE.Scene();
-            scene.background = new THREE.Color(state.isDarkMode ? 0x1e293b : 0xf1f5f9); // Match bg-slate
+            scene.background = new THREE.Color(state.isDarkMode ? 0x1e293b : 0xf1f5f9);
 
-            // UPDATE: Memperbesar 'far' plane dari 100 ke 10000 agar tidak terpotong saat zoom out jauh
+            // Jarak pandang jauh (10000) agar model tidak terpotong saat zoom out
             const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 10000);
             
-            // UPDATE: Posisi Kamera (Naik kanan atas agak mundur)
-            // X=5 (Kanan), Y=5 (Atas), Z=10 (Mundur/Jauh)
+            // Posisi Kamera (Naik kanan atas agak mundur)
             camera.position.set(5, 5, 10);
 
             const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -236,7 +228,6 @@
             container.appendChild(renderer.domElement);
             state.threeRenderer = renderer;
 
-            // 2. Lighting
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
             scene.add(ambientLight);
 
@@ -244,41 +235,32 @@
             dirLight.position.set(5, 10, 7);
             scene.add(dirLight);
 
-            // 3. Controls
             const controls = new OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.autoRotate = true;
             controls.autoRotateSpeed = 2.0;
-            // Memastikan tidak ada batasan zoom maksimal yang terlalu dekat, biarkan infinity
             controls.maxDistance = Infinity; 
 
-            // 4. Load Custom Model
             const loader = new ColladaLoader();
             
-            // Tampilkan text loading
             const loadingText = document.createElement('div');
             loadingText.className = 'absolute inset-0 flex items-center justify-center text-slate-500 text-sm pointer-events-none z-10';
             loadingText.innerText = 'Memuat Model 3D...';
             container.appendChild(loadingText);
 
-            // PATH FIX: Menghilangkan ./ agar lebih robust di berbagai environment
             loader.load('fire+extinguisher/model.dae', function (collada) {
                 const model = collada.scene;
                 
-                // Hapus loading text
                 if(loadingText.parentNode) loadingText.parentNode.removeChild(loadingText);
 
-                // Auto-scale & center model
                 const box = new THREE.Box3().setFromObject(model);
                 const size = box.getSize(new THREE.Vector3()).length();
                 const center = box.getCenter(new THREE.Vector3());
 
-                // Reset position to center
                 model.position.x += (model.position.x - center.x);
                 model.position.y += (model.position.y - center.y);
                 model.position.z += (model.position.z - center.z);
                 
-                // Scale to fit viewing area ~ unit size 2
                 const scale = 2 / size;
                 model.scale.set(scale, scale, scale);
 
@@ -287,16 +269,13 @@
             }, undefined, function (error) {
                 console.warn("Gagal memuat model.dae, menampilkan placeholder.", error);
                 
-                // Update text
                 loadingText.innerText = 'Model tidak ditemukan. Menampilkan placeholder.';
                 loadingText.className = 'absolute bottom-2 left-0 right-0 text-center text-yellow-600 text-xs pointer-events-none z-10 font-bold';
 
-                // FALLBACK: Buat Tabung Merah Sederhana (Cylinder) jika model gagal dimuat
                 const geometry = new THREE.CylinderGeometry(0.5, 0.5, 2, 32);
-                const material = new THREE.MeshPhongMaterial({ color: 0xdc2626 }); // Red-600
+                const material = new THREE.MeshPhongMaterial({ color: 0xdc2626 });
                 const cylinder = new THREE.Mesh(geometry, material);
                 
-                // Tambahkan detail tutup hitam (Nozzle simple)
                 const nozzleGeo = new THREE.BoxGeometry(0.2, 0.2, 0.5);
                 const nozzleMat = new THREE.MeshPhongMaterial({ color: 0x1f2937 });
                 const nozzle = new THREE.Mesh(nozzleGeo, nozzleMat);
@@ -306,7 +285,6 @@
                 scene.add(cylinder);
             });
 
-            // 5. Animation Loop
             const animate = function () {
                 state.animationId = requestAnimationFrame(animate);
                 controls.update();
@@ -314,7 +292,6 @@
             };
             animate();
 
-            // Handle Resize
             window.addEventListener('resize', () => {
                 if(container && renderer) {
                     camera.aspect = container.clientWidth / container.clientHeight;
@@ -324,7 +301,7 @@
             });
         }
 
-        // --- RENDERERS (HTML Strings) ---
+        // --- RENDERERS ---
 
         function renderHeader() {
             const isAlert = state.sensors.some(s => s.status === 'FIRE');
@@ -416,10 +393,6 @@
             else if (state.activeTab === 'visual3d') main.innerHTML = renderVisual3D();
             else if (state.activeTab === 'education') main.innerHTML = renderEducation();
         }
-
-        // --- TAB RENDERING FUNCTIONS ---
-        // (Isi fungsi renderDashboard, renderVisual3D, renderEducation sama seperti sebelumnya, 
-        //  HANYA render3DDetail yang diubah untuk mengakomodasi container Three.js)
 
         function renderDashboard() {
             return `
@@ -532,14 +505,13 @@
 
         function renderEmpty3DState() {
             return `
-                <div class="h-64 flex flex-col items-center justify-center text-slate-400 text-center p-4">
+                <div class="w-full aspect-[9/16] flex flex-col items-center justify-center text-slate-400 text-center p-4 bg-slate-50 dark:bg-slate-700/30 rounded-lg border border-slate-200 dark:border-slate-600">
                     <i data-lucide="map" class="w-12 h-12 mb-2 opacity-20"></i>
                     <p class="text-sm">Pilih ruangan pada denah untuk melihat detail visual APAR.</p>
                 </div>
             `;
         }
 
-        // --- NEW 3D CONTAINER ---
         function render3DDetail(data) {
             const statusClass = data.status === 'SAFE' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300';
             const statusText = data.status === 'SAFE' ? 'Standby' : 'ACTIVE';
@@ -552,8 +524,7 @@
                         <div class="flex justify-between items-center"><span class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Tekanan</span><span class="text-sm font-bold text-blue-600 dark:text-blue-400">${data.pressure}%</span></div>
                     </div>
                     <div class="border-t border-slate-100 dark:border-slate-700 pt-4">
-                        <!-- CONTAINER UNTUK MODEL 3D ANDA -->
-                        <div id="model-3d-container" class="w-full h-64 bg-slate-50 dark:bg-slate-700/30 rounded-lg overflow-hidden relative border border-slate-200 dark:border-slate-600">
+                        <div id="model-3d-container" class="w-full aspect-[9/16] bg-slate-50 dark:bg-slate-700/30 rounded-lg overflow-hidden relative border border-slate-200 dark:border-slate-600">
                              <!-- Three.js akan memasukkan canvas di sini -->
                         </div>
                         <p class="text-center text-xs text-slate-400 mt-2">Menampilkan: model.dae<br/><span class="italic">Geser/Putar untuk melihat detail</span></p>
