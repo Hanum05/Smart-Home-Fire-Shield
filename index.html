@@ -209,6 +209,7 @@
         // --- 3D LOADING LOGIC ---
         function init3DModel() {
             const container = document.getElementById('model-3d-container');
+            const slider = document.getElementById('zoom-slider'); // Ambil elemen slider
             if (!container) return;
 
             container.innerHTML = '';
@@ -216,7 +217,6 @@
             const scene = new THREE.Scene();
             scene.background = new THREE.Color(state.isDarkMode ? 0x1e293b : 0xf1f5f9);
 
-            // Setting kamera
             const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 10000);
             
             // Posisi Kamera (Naik kanan atas agak mundur)
@@ -240,11 +240,32 @@
             controls.autoRotate = true;
             controls.autoRotateSpeed = 2.0;
             
-            // --- PERBAIKAN DI SINI ---
-            // Membatasi zoom agar tidak bablas, namun diperjauh lagi
-            controls.minDistance = 2;   // Jarak minimal (agar tidak tembus)
-            controls.maxDistance = 200; // Jarak maksimal diperbesar (sebelumnya 50)
-            // -------------------------
+            // Batas Zoom (Min & Max Distance)
+            controls.minDistance = 2;   
+            controls.maxDistance = 200; 
+
+            // --- LOGIKA SLIDER ZOOM ---
+            if (slider) {
+                // Set nilai awal slider sesuai posisi kamera saat ini
+                slider.value = camera.position.distanceTo(controls.target);
+
+                // Event: Saat slider digeser -> Ubah Zoom Kamera
+                slider.addEventListener('input', (e) => {
+                    const zoomVal = parseFloat(e.target.value);
+                    // Hitung vektor arah kamera dari target
+                    const direction = camera.position.clone().sub(controls.target).normalize();
+                    // Set posisi baru berdasarkan jarak slider
+                    camera.position.copy(controls.target.clone().add(direction.multiplyScalar(zoomVal)));
+                    controls.update(); // Update controls agar sinkron
+                });
+
+                // Event: Saat User Scroll/Pinch di Canvas -> Update Slider
+                controls.addEventListener('change', () => {
+                    const currentDist = camera.position.distanceTo(controls.target);
+                    slider.value = currentDist;
+                });
+            }
+            // ---------------------------
 
             const loader = new ColladaLoader();
             
@@ -532,7 +553,14 @@
                         <div id="model-3d-container" class="w-full aspect-[9/16] bg-slate-50 dark:bg-slate-700/30 rounded-lg overflow-hidden relative border border-slate-200 dark:border-slate-600">
                              <!-- Three.js akan memasukkan canvas di sini -->
                         </div>
-                        <p class="text-center text-xs text-slate-400 mt-2">Menampilkan: model.dae<br/><span class="italic">Geser/Putar untuk melihat detail</span></p>
+                        
+                        <!-- SLIDER ZOOM TAMBAHAN -->
+                        <div class="flex items-center gap-3 mt-3 px-1">
+                            <span class="text-xs text-slate-500 font-bold uppercase"><i data-lucide="zoom-in" class="w-3 h-3 inline"></i> Zoom</span>
+                            <input type="range" id="zoom-slider" min="2" max="200" class="w-full h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-600">
+                        </div>
+
+                        <p class="text-center text-xs text-slate-400 mt-2">Menampilkan: model.dae<br/><span class="italic">Geser slider atau scroll untuk zoom</span></p>
                     </div>
                 </div>
             `;
