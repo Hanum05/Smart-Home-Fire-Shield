@@ -216,7 +216,7 @@
             const scene = new THREE.Scene();
             scene.background = new THREE.Color(state.isDarkMode ? 0x1e293b : 0xf1f5f9);
 
-            // Jarak pandang jauh (10000) agar model tidak terpotong saat zoom out
+            // Setting kamera
             const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 10000);
             
             // Posisi Kamera (Naik kanan atas agak mundur)
@@ -239,7 +239,12 @@
             controls.enableDamping = true;
             controls.autoRotate = true;
             controls.autoRotateSpeed = 2.0;
-            controls.maxDistance = Infinity; 
+            
+            // --- PERBAIKAN DI SINI ---
+            // Membatasi zoom agar tidak bablas
+            controls.minDistance = 2;   // Jarak minimal (agar tidak tembus)
+            controls.maxDistance = 50;  // Jarak maksimal (agar tidak hilang)
+            // -------------------------
 
             const loader = new ColladaLoader();
             
