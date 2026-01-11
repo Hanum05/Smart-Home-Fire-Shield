@@ -19,19 +19,19 @@
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap" rel="stylesheet">
 
+    <!-- Three.js Import Map -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
     <style>
         body { font-family: 'Inter', sans-serif; }
         
-        /* Custom 3D Animations */
-        .perspective-1000 { perspective: 1000px; }
-        .preserve-3d { transform-style: preserve-3d; }
-        .backface-hidden { backface-visibility: hidden; }
-        .rotate-y-180 { transform: rotateY(180deg); }
-        
-        .group:hover .group-hover-rotate-y-180 {
-            transform: rotateY(180deg);
-        }
-
         /* Animations */
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
@@ -44,8 +44,7 @@
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 min-h-screen flex flex-col transition-colors duration-300">
 
-    <!-- AUDIO ELEMENT (Alarm) -->
-    <!-- Ganti src="Alrm.mp3" jika nama file Anda berbeda -->
+    <!-- AUDIO ELEMENT -->
     <audio id="alarm-sound" src="Alrm.mp3" preload="auto" loop></audio>
 
     <!-- Sticky Header & Alert Container -->
@@ -62,8 +61,12 @@
         <p class="text-xs mt-2">Selalu hubungi Pemadam Kebakaran (113) dalam kondisi darurat.</p>
     </footer>
 
-    <!-- JAVASCRIPT LOGIC -->
-    <script>
+    <!-- JAVASCRIPT LOGIC (Module) -->
+    <script type="module">
+        import * as THREE from 'three';
+        import { ColladaLoader } from 'three/addons/loaders/ColladaLoader.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
         // --- DATA & STATE ---
         const state = {
             activeTab: 'dashboard',
@@ -75,7 +78,9 @@
                 { id: 2, location: 'Ruang Tamu', pressure: 88, temp: 26, smoke: 2, status: 'SAFE' },
                 { id: 3, location: 'Garasi', pressure: 45, temp: 30, smoke: 10, status: 'SAFE' },
                 { id: 4, location: 'Halaman Depan', pressure: 92, temp: 29, smoke: 1, status: 'SAFE' },
-            ]
+            ],
+            threeRenderer: null,
+            animationId: null
         };
 
         const CONSTANTS = {
@@ -101,21 +106,80 @@
             ]
         };
 
-        // --- CORE FUNCTIONS ---
+        // --- GLOBAL FUNCTIONS EXPORT ---
+        // Karena type="module", kita perlu meng-attach fungsi ke window agar bisa dipanggil HTML onclick
+        window.setActiveTab = (tab) => {
+            state.activeTab = tab;
+            // Stop previous animation loop if leaving visual3d tab
+            if (state.animationId) {
+                cancelAnimationFrame(state.animationId);
+                state.animationId = null;
+            }
+            renderApp();
+            
+            // Jika masuk ke tab visual3d, inisialisasi 3D
+            if (tab === 'visual3d' && state.selectedRoomId) {
+                setTimeout(init3DModel, 100); // Delay sedikit agar DOM siap
+            }
+        };
+
+        window.toggleTheme = (forceDark = null) => {
+            const html = document.documentElement;
+            if (forceDark === true || (forceDark === null && !state.isDarkMode)) {
+                html.classList.add('dark');
+                state.isDarkMode = true;
+            } else {
+                html.classList.remove('dark');
+                state.isDarkMode = false;
+            }
+            renderHeader();
+            lucide.createIcons();
+        };
+
+        window.triggerFire = (id) => {
+            const sensor = state.sensors.find(s => s.id === id);
+            if (sensor) {
+                sensor.status = 'FIRE';
+                sensor.temp = 85;
+                sensor.smoke = 450;
+                playAlarm();
+                renderApp();
+            }
+        };
+
+        window.resetSimulation = () => {
+            state.sensors = [
+                { id: 1, location: 'Dapur', pressure: 95, temp: 28, smoke: 5, status: 'SAFE' },
+                { id: 2, location: 'Ruang Tamu', pressure: 88, temp: 26, smoke: 2, status: 'SAFE' },
+                { id: 3, location: 'Garasi', pressure: 45, temp: 30, smoke: 10, status: 'SAFE' },
+                { id: 4, location: 'Halaman Depan', pressure: 92, temp: 29, smoke: 1, status: 'SAFE' },
+            ];
+            state.selectedRoomId = null;
+            stopAlarm();
+            if (state.animationId) {
+                cancelAnimationFrame(state.animationId);
+                state.animationId = null;
+            }
+            renderApp();
+        };
+
+        window.setSelectedRoom = (id) => {
+            state.selectedRoomId = id;
+            renderApp();
+            // Init 3D saat ruangan dipilih
+            setTimeout(init3DModel, 100);
+        };
+
+        // --- CORE LOGIC ---
 
         function init() {
-            // Check system preference
             if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                toggleTheme(true);
+                window.toggleTheme(true);
             }
-
-            // Start Clock
             setInterval(() => {
                 state.currentTime = new Date();
                 renderHeaderTime();
             }, 1000);
-
-            // Initial Render
             renderApp();
         }
 
@@ -125,83 +189,117 @@
             lucide.createIcons();
         }
 
-        // --- ACTIONS ---
-
-        function toggleTheme(forceDark = null) {
-            const html = document.documentElement;
-            if (forceDark === true || (forceDark === null && !state.isDarkMode)) {
-                html.classList.add('dark');
-                state.isDarkMode = true;
-            } else {
-                html.classList.remove('dark');
-                state.isDarkMode = false;
-            }
-            // Re-render header to update icon
-            renderHeader();
-            lucide.createIcons();
-        }
-
-        function setActiveTab(tab) {
-            state.activeTab = tab;
-            renderApp();
-        }
-
-        // --- AUDIO CONTROL ---
+        // --- AUDIO ---
         function playAlarm() {
             const audio = document.getElementById('alarm-sound');
-            if (audio) {
-                // Play audio, handle potential browser restrictions
-                audio.play().catch(e => console.log("Gagal memutar audio (perlu interaksi user):", e));
-            }
+            if (audio) audio.play().catch(e => console.log("Audio play failed:", e));
         }
 
         function stopAlarm() {
             const audio = document.getElementById('alarm-sound');
             if (audio) {
                 audio.pause();
-                audio.currentTime = 0; // Rewind to start
+                audio.currentTime = 0;
             }
         }
 
-        function triggerFire(id) {
-            const sensor = state.sensors.find(s => s.id === id);
-            if (sensor) {
-                sensor.status = 'FIRE';
-                sensor.temp = 85;
-                sensor.smoke = 450;
-                
-                // BUNYIKAN ALARM
-                playAlarm();
-                
-                renderApp();
-            }
-        }
+        // --- 3D LOADING LOGIC ---
+        function init3DModel() {
+            const container = document.getElementById('model-3d-container');
+            if (!container) return; // Container belum ada atau tab lain
 
-        function resetSimulation() {
-            state.sensors = [
-                { id: 1, location: 'Dapur', pressure: 95, temp: 28, smoke: 5, status: 'SAFE' },
-                { id: 2, location: 'Ruang Tamu', pressure: 88, temp: 26, smoke: 2, status: 'SAFE' },
-                { id: 3, location: 'Garasi', pressure: 45, temp: 30, smoke: 10, status: 'SAFE' },
-                { id: 4, location: 'Halaman Depan', pressure: 92, temp: 29, smoke: 1, status: 'SAFE' },
-            ];
-            state.selectedRoomId = null;
+            // Bersihkan container jika ada canvas lama
+            container.innerHTML = '';
             
-            // MATIKAN ALARM
-            stopAlarm();
+            // 1. Scene Setup
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(state.isDarkMode ? 0x1e293b : 0xf1f5f9); // Match bg-slate
+
+            const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+            camera.position.set(2, 2, 4);
+
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+            state.threeRenderer = renderer;
+
+            // 2. Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(5, 10, 7);
+            scene.add(dirLight);
+
+            // 3. Controls
+            const controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 2.0;
+
+            // 4. Load Custom Model
+            const loader = new ColladaLoader();
             
-            renderApp();
+            // Tampilkan text loading
+            const loadingText = document.createElement('div');
+            loadingText.className = 'absolute inset-0 flex items-center justify-center text-slate-500 text-sm pointer-events-none';
+            loadingText.innerText = 'Memuat Model 3D...';
+            container.appendChild(loadingText);
+
+            // PATH KE FILE ANDA
+            loader.load('./fire+extinguisher/model.dae', function (collada) {
+                const model = collada.scene;
+                
+                // Hapus loading text
+                if(loadingText.parentNode) loadingText.parentNode.removeChild(loadingText);
+
+                // Auto-scale & center model
+                const box = new THREE.Box3().setFromObject(model);
+                const size = box.getSize(new THREE.Vector3()).length();
+                const center = box.getCenter(new THREE.Vector3());
+
+                // Reset position to center
+                model.position.x += (model.position.x - center.x);
+                model.position.y += (model.position.y - center.y);
+                model.position.z += (model.position.z - center.z);
+                
+                // Scale to fit viewing area ~ unit size 2
+                const scale = 2 / size;
+                model.scale.set(scale, scale, scale);
+
+                scene.add(model);
+
+            }, undefined, function (error) {
+                console.error(error);
+                loadingText.innerText = 'Gagal memuat model.dae. Cek path file.';
+                loadingText.classList.add('text-red-500');
+            });
+
+            // 5. Animation Loop
+            const animate = function () {
+                state.animationId = requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
+            };
+            animate();
+
+            // Handle Resize
+            window.addEventListener('resize', () => {
+                if(container && renderer) {
+                    camera.aspect = container.clientWidth / container.clientHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(container.clientWidth, container.clientHeight);
+                }
+            });
         }
 
-        function setSelectedRoom(id) {
-            state.selectedRoomId = id;
-            renderApp();
-        }
-
-        // --- RENDERERS ---
+        // --- RENDERERS (HTML Strings) ---
 
         function renderHeader() {
             const isAlert = state.sensors.some(s => s.status === 'FIRE');
             const container = document.getElementById('header-container');
+            const themeIcon = state.isDarkMode ? 'sun' : 'moon';
             
             let alertHtml = '';
             if (isAlert) {
@@ -212,8 +310,6 @@
                     </div>
                 `;
             }
-
-            const themeIcon = state.isDarkMode ? 'sun' : 'moon';
 
             container.innerHTML = `
                 ${alertHtml}
@@ -229,34 +325,25 @@
                                     <p class="text-xs text-slate-500 dark:text-slate-400">Sistem Mitigasi & Edukasi Bencana</p>
                                 </div>
                             </div>
-                            
-                            <!-- Desktop Nav -->
                             <div class="hidden md:flex gap-4 items-center">
                                 ${renderNavButton('dashboard', 'layout-dashboard', 'Monitoring')}
                                 ${renderNavButton('visual3d', 'map', 'Denah & Visual 3D')}
                                 ${renderNavButton('education', 'book-open', 'Edukasi APAR')}
-                                
                                 <div class="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-2"></div>
-
-                                <button onclick="toggleTheme()" class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="Ubah Mode">
+                                <button onclick="window.toggleTheme()" class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                                     <i data-lucide="${themeIcon}" class="w-5 h-5"></i>
                                 </button>
                             </div>
-                            
-                            <!-- Time & Mobile Toggle -->
                             <div class="flex items-center gap-4 sm:hidden">
-                                <button onclick="toggleTheme()" class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                                <button onclick="window.toggleTheme()" class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                                     <i data-lucide="${themeIcon}" class="w-5 h-5"></i>
                                 </button>
                             </div>
-
                             <div class="text-right hidden sm:block" id="header-time">
                                 ${getFormattedTime()}
                             </div>
                         </div>
                     </div>
-                    
-                    <!-- Mobile Nav -->
                     <div class="flex md:hidden border-t border-slate-100 dark:border-slate-800">
                         ${renderMobileNavButton('dashboard', 'Monitoring')}
                         ${renderMobileNavButton('visual3d', 'Denah')}
@@ -271,13 +358,7 @@
             const classes = isActive 
                 ? 'bg-slate-100 dark:bg-slate-800 text-red-600 dark:text-red-400' 
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/50';
-            
-            return `
-                <button onclick="setActiveTab('${tabName}')" 
-                    class="px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${classes}">
-                    <i data-lucide="${iconName}" class="w-4 h-4"></i> ${label}
-                </button>
-            `;
+            return `<button onclick="window.setActiveTab('${tabName}')" class="px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${classes}"><i data-lucide="${iconName}" class="w-4 h-4"></i> ${label}</button>`;
         }
 
         function renderMobileNavButton(tabName, label) {
@@ -285,7 +366,7 @@
             const classes = isActive 
                 ? 'text-red-600 dark:text-red-400 bg-slate-50 dark:bg-slate-800' 
                 : 'text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900';
-            return `<button onclick="setActiveTab('${tabName}')" class="flex-1 py-3 text-center text-sm font-medium ${classes} transition-colors">${label}</button>`;
+            return `<button onclick="window.setActiveTab('${tabName}')" class="flex-1 py-3 text-center text-sm font-medium ${classes} transition-colors">${label}</button>`;
         }
 
         function renderHeaderTime() {
@@ -296,25 +377,19 @@
         function getFormattedTime() {
             const timeStr = state.currentTime.toLocaleTimeString('id-ID');
             const dateStr = state.currentTime.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-            return `
-                <div class="text-sm font-bold text-slate-700 dark:text-slate-200">${timeStr}</div>
-                <div class="text-xs text-slate-500 dark:text-slate-400">${dateStr}</div>
-            `;
+            return `<div class="text-sm font-bold text-slate-700 dark:text-slate-200">${timeStr}</div><div class="text-xs text-slate-500 dark:text-slate-400">${dateStr}</div>`;
         }
 
         function renderMainContent() {
             const main = document.getElementById('main-content');
-            
-            if (state.activeTab === 'dashboard') {
-                main.innerHTML = renderDashboard();
-            } else if (state.activeTab === 'visual3d') {
-                main.innerHTML = renderVisual3D();
-            } else if (state.activeTab === 'education') {
-                main.innerHTML = renderEducation();
-            }
+            if (state.activeTab === 'dashboard') main.innerHTML = renderDashboard();
+            else if (state.activeTab === 'visual3d') main.innerHTML = renderVisual3D();
+            else if (state.activeTab === 'education') main.innerHTML = renderEducation();
         }
 
-        // --- TAB: DASHBOARD ---
+        // --- TAB RENDERING FUNCTIONS ---
+        // (Isi fungsi renderDashboard, renderVisual3D, renderEducation sama seperti sebelumnya, 
+        //  HANYA render3DDetail yang diubah untuk mengakomodasi container Three.js)
 
         function renderDashboard() {
             return `
@@ -324,39 +399,23 @@
                             <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Status Monitoring Real-time</h2>
                             <p class="text-slate-500 dark:text-slate-400">Memantau kondisi APAR dan sensor lingkungan di rumah Anda.</p>
                         </div>
-                        <button onclick="resetSimulation()" class="px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white rounded-lg text-sm font-medium hover:bg-slate-700 dark:hover:bg-slate-600 transition-colors flex items-center gap-2 shadow-sm">
+                        <button onclick="window.resetSimulation()" class="px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white rounded-lg text-sm font-medium hover:bg-slate-700 dark:hover:bg-slate-600 transition-colors flex items-center gap-2 shadow-sm">
                             <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Reset Sistem
                         </button>
                     </div>
-
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         ${state.sensors.map(sensor => renderSensorCard(sensor)).join('')}
                     </div>
-
                     <div class="bg-gradient-to-r from-blue-600 to-blue-800 dark:from-blue-900 dark:to-slate-900 rounded-2xl p-6 text-white shadow-xl">
                         <div class="flex flex-col md:flex-row items-center justify-between gap-6">
                             <div class="flex items-center gap-4">
-                                <div class="bg-white/20 p-3 rounded-full">
-                                    <i data-lucide="activity" class="w-8 h-8 text-white"></i>
-                                </div>
-                                <div>
-                                    <h3 class="text-lg font-bold">Laporan Sistem Harian</h3>
-                                    <p class="text-blue-100 text-sm">Semua sensor aktif. Koneksi IoT stabil.</p>
-                                </div>
+                                <div class="bg-white/20 p-3 rounded-full"><i data-lucide="activity" class="w-8 h-8 text-white"></i></div>
+                                <div><h3 class="text-lg font-bold">Laporan Sistem Harian</h3><p class="text-blue-100 text-sm">Semua sensor aktif. Koneksi IoT stabil.</p></div>
                             </div>
                             <div class="grid grid-cols-3 gap-8 text-center">
-                                <div>
-                                    <div class="text-2xl font-bold">4</div>
-                                    <div class="text-xs text-blue-200 uppercase">Unit APAR</div>
-                                </div>
-                                <div>
-                                    <div class="text-2xl font-bold">100%</div>
-                                    <div class="text-xs text-blue-200 uppercase">Baterai Sensor</div>
-                                </div>
-                                <div>
-                                    <div class="text-2xl font-bold">24j</div>
-                                    <div class="text-xs text-blue-200 uppercase">Waktu Aktif</div>
-                                </div>
+                                <div><div class="text-2xl font-bold">4</div><div class="text-xs text-blue-200 uppercase">Unit APAR</div></div>
+                                <div><div class="text-2xl font-bold">100%</div><div class="text-xs text-blue-200 uppercase">Baterai Sensor</div></div>
+                                <div><div class="text-2xl font-bold">24j</div><div class="text-xs text-blue-200 uppercase">Waktu Aktif</div></div>
                             </div>
                         </div>
                     </div>
@@ -366,79 +425,37 @@
 
         function renderSensorCard(data) {
             const isDanger = data.status === 'FIRE';
-            const isLowPressure = data.pressure < 30;
-            const containerClass = isDanger 
-                ? 'bg-red-50 dark:bg-red-900/20 border-red-500 animate-pulse' 
-                : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700';
-            
-            const statusBadge = isDanger 
-                ? '<span class="px-2 py-1 rounded text-xs font-bold bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200">BAHAYA</span>'
-                : '<span class="px-2 py-1 rounded text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300">AMAN</span>';
-
-            const fireBadge = isDanger 
-                ? '<div class="absolute -top-3 -right-3 bg-red-600 text-white px-3 py-1 rounded-full text-xs font-bold animate-bounce shadow-md z-10">KEBAKARAN!</div>' 
-                : '';
-
+            const containerClass = isDanger ? 'bg-red-50 dark:bg-red-900/20 border-red-500 animate-pulse' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700';
+            const statusBadge = isDanger ? '<span class="px-2 py-1 rounded text-xs font-bold bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200">BAHAYA</span>' : '<span class="px-2 py-1 rounded text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300">AMAN</span>';
+            const fireBadge = isDanger ? '<div class="absolute -top-3 -right-3 bg-red-600 text-white px-3 py-1 rounded-full text-xs font-bold animate-bounce shadow-md z-10">KEBAKARAN!</div>' : '';
             const pressureColor = data.pressure > 70 ? 'bg-green-500' : data.pressure > 30 ? 'bg-yellow-500' : 'bg-red-500';
 
             return `
                 <div class="relative p-6 rounded-2xl border-2 transition-all duration-300 shadow-lg ${containerClass}">
                     ${fireBadge}
-                    
                     <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                            <i data-lucide="home" class="w-5 h-5 text-slate-500 dark:text-slate-400"></i>
-                            ${data.location}
-                        </h3>
+                        <h3 class="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2"><i data-lucide="home" class="w-5 h-5 text-slate-500 dark:text-slate-400"></i>${data.location}</h3>
                         ${statusBadge}
                     </div>
-
                     <div class="space-y-4">
                         <div>
-                            <div class="flex items-center justify-between text-sm text-slate-500 dark:text-slate-400 mb-1">
-                                <span class="flex items-center gap-1"><i data-lucide="activity" class="w-4 h-4"></i> Tekanan APAR</span>
-                                ${isLowPressure ? '<span class="text-red-500 font-bold text-xs">PERLU ISI ULANG</span>' : ''}
-                            </div>
-                            <!-- Progress Bar -->
-                            <div class="w-full">
-                                <div class="flex justify-between mb-1">
-                                    <span class="text-sm font-medium text-slate-700 dark:text-slate-300"></span>
-                                    <span class="text-sm font-medium text-slate-700 dark:text-slate-300">${data.pressure}%</span>
-                                </div>
-                                <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5">
-                                    <div class="h-2.5 rounded-full ${pressureColor}" style="width: ${data.pressure}%"></div>
-                                </div>
-                            </div>
+                            <div class="flex items-center justify-between text-sm text-slate-500 dark:text-slate-400 mb-1"><span class="flex items-center gap-1"><i data-lucide="activity" class="w-4 h-4"></i> Tekanan APAR</span>${data.pressure < 30 ? '<span class="text-red-500 font-bold text-xs">PERLU ISI ULANG</span>' : ''}</div>
+                            <div class="w-full"><div class="flex justify-between mb-1"><span class="text-sm font-medium"></span><span class="text-sm font-medium text-slate-700 dark:text-slate-300">${data.pressure}%</span></div><div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5"><div class="h-2.5 rounded-full ${pressureColor}" style="width: ${data.pressure}%"></div></div></div>
                         </div>
-
                         <div class="grid grid-cols-2 gap-4 mt-4">
-                            <div class="bg-slate-50 dark:bg-slate-700/50 p-3 rounded-xl flex flex-col items-center justify-center">
-                                <i data-lucide="thermometer" class="w-6 h-6 mb-1 ${data.temp > 50 ? 'text-red-500' : 'text-blue-500 dark:text-blue-400'}"></i>
-                                <span class="text-xs text-slate-500 dark:text-slate-400">Suhu</span>
-                                <span class="font-bold text-slate-700 dark:text-slate-200">${data.temp}°C</span>
-                            </div>
-                            <div class="bg-slate-50 dark:bg-slate-700/50 p-3 rounded-xl flex flex-col items-center justify-center">
-                                <i data-lucide="wind" class="w-6 h-6 mb-1 ${data.smoke > 20 ? 'text-gray-700 dark:text-gray-400' : 'text-green-500 dark:text-green-400'}"></i>
-                                <span class="text-xs text-slate-500 dark:text-slate-400">Asap (PPM)</span>
-                                <span class="font-bold text-slate-700 dark:text-slate-200">${data.smoke}</span>
-                            </div>
+                            <div class="bg-slate-50 dark:bg-slate-700/50 p-3 rounded-xl flex flex-col items-center justify-center"><i data-lucide="thermometer" class="w-6 h-6 mb-1 ${data.temp > 50 ? 'text-red-500' : 'text-blue-500 dark:text-blue-400'}"></i><span class="text-xs text-slate-500 dark:text-slate-400">Suhu</span><span class="font-bold text-slate-700 dark:text-slate-200">${data.temp}°C</span></div>
+                            <div class="bg-slate-50 dark:bg-slate-700/50 p-3 rounded-xl flex flex-col items-center justify-center"><i data-lucide="wind" class="w-6 h-6 mb-1 ${data.smoke > 20 ? 'text-gray-700 dark:text-gray-400' : 'text-green-500 dark:text-green-400'}"></i><span class="text-xs text-slate-500 dark:text-slate-400">Asap (PPM)</span><span class="font-bold text-slate-700 dark:text-slate-200">${data.smoke}</span></div>
                         </div>
                     </div>
-
                     <div class="mt-6 pt-4 border-t border-slate-100 dark:border-slate-700 flex gap-2">
-                        <button onclick="triggerFire(${data.id})" class="flex-1 bg-red-100 hover:bg-red-200 dark:bg-red-900/40 dark:hover:bg-red-900/60 text-red-700 dark:text-red-300 text-xs py-2 rounded-lg font-semibold transition-colors">
-                            Simulasi Api
-                        </button>
+                        <button onclick="window.triggerFire(${data.id})" class="flex-1 bg-red-100 hover:bg-red-200 dark:bg-red-900/40 dark:hover:bg-red-900/60 text-red-700 dark:text-red-300 text-xs py-2 rounded-lg font-semibold transition-colors">Simulasi Api</button>
                     </div>
                 </div>
             `;
         }
 
-        // --- TAB: VISUAL 3D ---
-
         function renderVisual3D() {
             const selectedRoom = state.selectedRoomId ? state.sensors.find(s => s.id === state.selectedRoomId) : null;
-
             return `
                 <div class="space-y-6 animate-fade-in">
                      <div class="flex flex-col md:flex-row justify-between items-end md:items-center gap-4">
@@ -447,30 +464,19 @@
                             <p class="text-slate-500 dark:text-slate-400">Peta lokasi APAR dalam rumah dan visualisasi bentuk fisik unit.</p>
                         </div>
                     </div>
-                    
                     <div class="flex flex-col lg:flex-row gap-8">
-                        <!-- Floor Plan -->
                         <div class="flex-1 bg-slate-900 p-8 rounded-2xl shadow-inner relative overflow-hidden min-h-[400px] border border-slate-800">
-                            <div class="absolute top-4 left-4 text-white/50 text-sm font-mono">
-                                FLOOR PLAN // LEVEL 1 <br/> SMART HOME SYSTEM
-                            </div>
-                            
+                            <div class="absolute top-4 left-4 text-white/50 text-sm font-mono">FLOOR PLAN // LEVEL 1 <br/> SMART HOME SYSTEM</div>
                             <div class="w-full max-w-md mx-auto aspect-square grid grid-cols-2 grid-rows-2 gap-2 p-2 bg-slate-800/50 border-2 border-slate-700 mt-8">
                                 ${renderRoom(state.sensors[0], 'DAPUR', 'bottom-2 right-2')}
                                 ${renderRoom(state.sensors[1], 'R. TAMU', 'top-2 right-2', true)}
                                 ${renderRoom(state.sensors[2], 'GARASI', 'bottom-2 left-2')}
                                 ${renderRoom(state.sensors[3], 'HALAMAN', 'top-2 left-1/2', false, true)}
                             </div>
-                            <div class="mt-4 text-center text-slate-500 text-xs">
-                                Klik ruangan untuk melihat detail APAR
-                            </div>
+                            <div class="mt-4 text-center text-slate-500 text-xs">Klik ruangan untuk melihat detail APAR</div>
                         </div>
-
-                        <!-- 3D Visual Panel -->
                         <div class="w-full lg:w-80 bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 transition-colors">
-                            <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
-                                <i data-lucide="box" class="w-5 h-5"></i> Visualisasi Unit
-                            </h3>
+                            <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2"><i data-lucide="box" class="w-5 h-5"></i> Visualisasi Unit</h3>
                             ${selectedRoom ? render3DDetail(selectedRoom) : renderEmpty3DState()}
                         </div>
                     </div>
@@ -482,19 +488,13 @@
             const isSelected = state.selectedRoomId === sensor.id;
             const borderClass = dashed ? 'border-dashed border-slate-600 bg-slate-900/50' : 'border-slate-600 bg-slate-800/80';
             const selectedClass = isSelected ? (dashed ? 'ring-2 ring-blue-500' : 'ring-2 ring-blue-500 bg-slate-700') : '';
-            
-            const icon = sensor.status === 'FIRE' 
-                ? '<i data-lucide="flame" class="w-8 h-8 text-red-500 animate-bounce absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></i>'
-                : '<i data-lucide="shield-check" class="w-6 h-6 text-green-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></i>';
-
+            const icon = sensor.status === 'FIRE' ? '<i data-lucide="flame" class="w-8 h-8 text-red-500 animate-bounce absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></i>' : '<i data-lucide="shield-check" class="w-6 h-6 text-green-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></i>';
             const doorHtml = hasDoor ? '<div class="absolute bottom-0 right-0 w-12 h-1 bg-slate-500"></div>' : '';
 
             return `
-                <div onclick="setSelectedRoom(${sensor.id})" 
-                    class="relative border p-2 cursor-pointer transition-all hover:bg-slate-700 ${borderClass} ${selectedClass}">
+                <div onclick="window.setSelectedRoom(${sensor.id})" class="relative border p-2 cursor-pointer transition-all hover:bg-slate-700 ${borderClass} ${selectedClass}">
                     <span class="text-xs text-slate-400 font-mono absolute top-2 left-2">${name}</span>
-                    ${doorHtml}
-                    ${icon}
+                    ${doorHtml}${icon}
                     <div class="absolute ${aparPosClass} w-3 h-3 rounded-full bg-red-600 shadow-[0_0_10px_rgba(220,38,38,0.8)] animate-pulse" title="Posisi APAR"></div>
                 </div>
             `;
@@ -509,217 +509,58 @@
             `;
         }
 
+        // --- NEW 3D CONTAINER ---
         function render3DDetail(data) {
-            const statusClass = data.status === 'SAFE' 
-                ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' 
-                : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300';
+            const statusClass = data.status === 'SAFE' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300';
             const statusText = data.status === 'SAFE' ? 'Standby' : 'ACTIVE';
 
             return `
                 <div class="animate-fade-in">
                     <div class="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 mb-4 border border-slate-100 dark:border-slate-600">
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Lokasi</span>
-                            <span class="text-sm font-bold text-slate-800 dark:text-slate-200">${data.location}</span>
-                        </div>
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Status</span>
-                            <span class="text-xs font-bold px-2 py-0.5 rounded ${statusClass}">${statusText}</span>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Tekanan</span>
-                            <span class="text-sm font-bold text-blue-600 dark:text-blue-400">${data.pressure}%</span>
-                        </div>
+                        <div class="flex justify-between items-center mb-2"><span class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Lokasi</span><span class="text-sm font-bold text-slate-800 dark:text-slate-200">${data.location}</span></div>
+                        <div class="flex justify-between items-center mb-2"><span class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Status</span><span class="text-xs font-bold px-2 py-0.5 rounded ${statusClass}">${statusText}</span></div>
+                        <div class="flex justify-between items-center"><span class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Tekanan</span><span class="text-sm font-bold text-blue-600 dark:text-blue-400">${data.pressure}%</span></div>
                     </div>
-
                     <div class="border-t border-slate-100 dark:border-slate-700 pt-4">
-                        <!-- CSS 3D APAR MODEL -->
-                        <div class="w-32 h-64 relative mx-auto my-8 perspective-1000 group cursor-pointer">
-                            <div class="relative w-full h-full preserve-3d transition-transform duration-1000 group-hover-rotate-y-180">
-                                <!-- Tank Body -->
-                                <div class="absolute inset-x-4 bottom-0 h-48 bg-gradient-to-r from-red-700 via-red-500 to-red-700 rounded-b-3xl rounded-t-lg shadow-xl flex items-center justify-center">
-                                    <div class="absolute inset-x-0 top-10 bottom-10 bg-white/20 blur-sm"></div>
-                                    <div class="w-16 h-24 bg-white opacity-80 flex flex-col items-center justify-center p-1 text-[8px] text-center border border-slate-200">
-                                        <span class="font-bold text-black scale-75 block">APAR</span>
-                                        <span class="font-bold text-red-600 scale-75 block">POWDER</span>
-                                        <div class="w-full h-1 bg-black my-1"></div>
-                                        <div class="w-full h-1 bg-green-500 my-0.5"></div>
-                                    </div>
-                                </div>
-                                <!-- Nozzle/Head -->
-                                <div class="absolute left-1/2 -translate-x-1/2 top-10 w-8 h-8 bg-black rounded-sm"></div>
-                                <div class="absolute left-1/2 -translate-x-1/2 top-6 w-12 h-2 bg-black"></div>
-                                <div class="absolute left-1/2 -translate-x-1/2 top-4 w-2 h-6 bg-slate-400"></div>
-                                <!-- Hose -->
-                                <div class="absolute right-6 top-12 w-8 h-32 border-r-4 border-b-4 border-black rounded-br-3xl pointer-events-none"></div>
-                            </div>
-                            <div class="absolute -bottom-4 left-1/2 -translate-x-1/2 w-24 h-4 bg-black/20 blur-md rounded-full"></div>
+                        <!-- CONTAINER UNTUK MODEL 3D ANDA -->
+                        <div id="model-3d-container" class="w-full h-64 bg-slate-50 dark:bg-slate-700/30 rounded-lg overflow-hidden relative border border-slate-200 dark:border-slate-600">
+                             <!-- Three.js akan memasukkan canvas di sini -->
                         </div>
-
-                        <p class="text-center text-xs text-slate-400 mt-2">
-                            Model: ABC Dry Chemical Powder 3kg <br/>
-                            <span class="italic">Hover untuk memutar pandangan</span>
-                        </p>
+                        <p class="text-center text-xs text-slate-400 mt-2">Menampilkan: model.dae<br/><span class="italic">Geser/Putar untuk melihat detail</span></p>
                     </div>
                 </div>
             `;
         }
 
-        // --- TAB: EDUCATION ---
-
         function renderEducation() {
             const passStepsHtml = CONSTANTS.PASS_STEPS.map(step => `
                 <div class="bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
-                    <div class="flex items-center justify-between mb-4">
-                        <span class="text-4xl font-black text-slate-100 dark:text-slate-700">${step.step}</span>
-                        <div class="bg-red-50 dark:bg-red-900/20 p-2 rounded-lg text-red-600 dark:text-red-400">
-                            <i data-lucide="${step.icon}" class="w-8 h-8"></i>
-                        </div>
-                    </div>
-                    <h3 class="text-xl font-bold text-slate-800 dark:text-white mb-2">${step.title}</h3>
-                    <p class="text-slate-600 dark:text-slate-400 text-sm">${step.desc}</p>
+                    <div class="flex items-center justify-between mb-4"><span class="text-4xl font-black text-slate-100 dark:text-slate-700">${step.step}</span><div class="bg-red-50 dark:bg-red-900/20 p-2 rounded-lg text-red-600 dark:text-red-400"><i data-lucide="${step.icon}" class="w-8 h-8"></i></div></div>
+                    <h3 class="text-xl font-bold text-slate-800 dark:text-white mb-2">${step.title}</h3><p class="text-slate-600 dark:text-slate-400 text-sm">${step.desc}</p>
                 </div>
             `).join('');
-
-            const fireClassesHtml = CONSTANTS.FIRE_CLASSES.map(item => `
-                <div class="p-4 flex items-start gap-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                    <div class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center font-bold ${item.color}">
-                        ${item.class}
-                    </div>
-                    <div>
-                        <h4 class="font-bold text-slate-800 dark:text-slate-200">Kelas ${item.class}</h4>
-                        <p class="text-sm text-slate-600 dark:text-slate-400">${item.desc}</p>
-                    </div>
-                </div>
-            `).join('');
-
-            const aparTypesHtml = CONSTANTS.APAR_TYPES.map(type => `
-                <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 flex items-center justify-between shadow-sm">
-                    <div class="flex items-center gap-3">
-                        <div class="w-4 h-4 rounded-full ${type.color === 'bg-black' ? 'bg-slate-800 dark:bg-slate-900' : type.color}"></div>
-                        <div>
-                            <h4 class="font-bold text-slate-800 dark:text-slate-200">${type.name}</h4>
-                            <p class="text-xs text-slate-500 dark:text-slate-400">${type.desc}</p>
-                        </div>
-                    </div>
-                    <span class="text-xs font-semibold px-2 py-1 bg-slate-100 dark:bg-slate-700 rounded text-slate-600 dark:text-slate-300">
-                        ${type.effective}
-                    </span>
-                </div>
-            `).join('');
+            const fireClassesHtml = CONSTANTS.FIRE_CLASSES.map(item => `<div class="p-4 flex items-start gap-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"><div class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center font-bold ${item.color}">${item.class}</div><div><h4 class="font-bold text-slate-800 dark:text-slate-200">Kelas ${item.class}</h4><p class="text-sm text-slate-600 dark:text-slate-400">${item.desc}</p></div></div>`).join('');
+            const aparTypesHtml = CONSTANTS.APAR_TYPES.map(type => `<div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 flex items-center justify-between shadow-sm"><div class="flex items-center gap-3"><div class="w-4 h-4 rounded-full ${type.color === 'bg-black' ? 'bg-slate-800 dark:bg-slate-900' : type.color}"></div><div><h4 class="font-bold text-slate-800 dark:text-slate-200">${type.name}</h4><p class="text-xs text-slate-500 dark:text-slate-400">${type.desc}</p></div></div><span class="text-xs font-semibold px-2 py-1 bg-slate-100 dark:bg-slate-700 rounded text-slate-600 dark:text-slate-300">${type.effective}</span></div>`).join('');
 
             return `
                 <div class="space-y-12 animate-fade-in pb-12">
-                    
-                    <!-- Hero -->
                     <div class="bg-white dark:bg-slate-800 rounded-2xl p-8 shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col md:flex-row items-center gap-8 transition-colors">
-                        <div class="flex-1">
-                            <span class="inline-block px-3 py-1 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded-full text-xs font-bold mb-4">EDUKASI KESELAMATAN</span>
-                            <h2 class="text-3xl font-bold text-slate-900 dark:text-white mb-4">Apa itu APAR?</h2>
-                            <p class="text-slate-600 dark:text-slate-300 leading-relaxed mb-4">
-                                Menurut <strong>Permenaker No: PER.04/MEN/1980</strong>, Alat Pemadam Api Ringan (APAR) adalah alat yang ringan serta mudah dilayani oleh satu orang untuk memadamkan api pada awal terjadi kebakaran.
-                            </p>
-                            <div class="bg-slate-50 dark:bg-slate-700/50 border-l-4 border-red-500 p-4 rounded-r-lg">
-                                <p class="text-sm text-slate-700 dark:text-slate-300 italic">
-                                    "APAR didesain untuk pertolongan pertama pada kebakaran kecil, bukan untuk kebakaran besar yang sudah tidak terkendali."
-                                </p>
-                            </div>
-                        </div>
-                        <div class="w-full md:w-1/3 flex justify-center">
-                            <div class="w-48 h-48 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center">
-                                <i data-lucide="flame" class="w-24 h-24 text-red-500"></i>
-                            </div>
-                        </div>
+                        <div class="flex-1"><span class="inline-block px-3 py-1 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded-full text-xs font-bold mb-4">EDUKASI KESELAMATAN</span><h2 class="text-3xl font-bold text-slate-900 dark:text-white mb-4">Apa itu APAR?</h2><p class="text-slate-600 dark:text-slate-300 leading-relaxed mb-4">Menurut <strong>Permenaker No: PER.04/MEN/1980</strong>, Alat Pemadam Api Ringan (APAR) adalah alat yang ringan serta mudah dilayani oleh satu orang untuk memadamkan api pada awal terjadi kebakaran.</p><div class="bg-slate-50 dark:bg-slate-700/50 border-l-4 border-red-500 p-4 rounded-r-lg"><p class="text-sm text-slate-700 dark:text-slate-300 italic">"APAR didesain untuk pertolongan pertama pada kebakaran kecil, bukan untuk kebakaran besar yang sudah tidak terkendali."</p></div></div>
+                        <div class="w-full md:w-1/3 flex justify-center"><div class="w-48 h-48 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center"><i data-lucide="flame" class="w-24 h-24 text-red-500"></i></div></div>
                     </div>
-
-                    <!-- PASS Method -->
-                    <div>
-                        <div class="flex items-center gap-3 mb-6">
-                            <div class="bg-red-600 w-1 h-8 rounded-full"></div>
-                            <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Teknik Penggunaan (Metode PASS)</h2>
-                        </div>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                            ${passStepsHtml}
-                        </div>
-                    </div>
-
-                    <!-- Classification & Types Grid -->
+                    <div><div class="flex items-center gap-3 mb-6"><div class="bg-red-600 w-1 h-8 rounded-full"></div><h2 class="text-2xl font-bold text-slate-800 dark:text-white">Teknik Penggunaan (Metode PASS)</h2></div><div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">${passStepsHtml}</div></div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div>
-                            <div class="flex items-center gap-3 mb-6">
-                                <div class="bg-blue-600 w-1 h-8 rounded-full"></div>
-                                <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Klasifikasi Kebakaran</h2>
-                            </div>
-                            <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
-                                <div class="divide-y divide-slate-100 dark:divide-slate-700">
-                                    ${fireClassesHtml}
-                                </div>
-                            </div>
-                        </div>
-
+                        <div><div class="flex items-center gap-3 mb-6"><div class="bg-blue-600 w-1 h-8 rounded-full"></div><h2 class="text-2xl font-bold text-slate-800 dark:text-white">Klasifikasi Kebakaran</h2></div><div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden"><div class="divide-y divide-slate-100 dark:divide-slate-700">${fireClassesHtml}</div></div></div>
                         <div class="space-y-8">
-                            <!-- Types -->
-                            <div>
-                                <div class="flex items-center gap-3 mb-6">
-                                    <div class="bg-green-600 w-1 h-8 rounded-full"></div>
-                                    <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Jenis-Jenis APAR</h2>
-                                </div>
-                                <div class="space-y-3">
-                                    ${aparTypesHtml}
-                                </div>
-                            </div>
-
-                            <!-- Rules -->
-                            <div>
-                                <div class="flex items-center gap-3 mb-6">
-                                    <div class="bg-yellow-500 w-1 h-8 rounded-full"></div>
-                                    <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Aturan Pemasangan</h2>
-                                </div>
-                                <div class="bg-slate-800 dark:bg-slate-900 text-white p-6 rounded-xl shadow-lg border border-slate-700 dark:border-slate-800">
-                                    <ul class="space-y-4">
-                                        <li class="flex items-start gap-3">
-                                            <i data-lucide="check-circle" class="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5"></i>
-                                            <span class="text-sm">Mudah diakses dan tidak terhalang benda lain.</span>
-                                        </li>
-                                        <li class="flex items-start gap-3">
-                                            <i data-lucide="check-circle" class="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5"></i>
-                                            <span class="text-sm">Jarak min. 15 cm dari lantai (ideal 125 cm).</span>
-                                        </li>
-                                        <li class="flex items-start gap-3">
-                                            <i data-lucide="thermometer" class="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5"></i>
-                                            <span class="text-sm">Hindari suhu ekstrim (&gt;49°C atau &lt;-44°C).</span>
-                                        </li>
-                                    </ul>
-                                </div>
-                            </div>
+                            <div><div class="flex items-center gap-3 mb-6"><div class="bg-green-600 w-1 h-8 rounded-full"></div><h2 class="text-2xl font-bold text-slate-800 dark:text-white">Jenis-Jenis APAR</h2></div><div class="space-y-3">${aparTypesHtml}</div></div>
+                            <div><div class="flex items-center gap-3 mb-6"><div class="bg-yellow-500 w-1 h-8 rounded-full"></div><h2 class="text-2xl font-bold text-slate-800 dark:text-white">Aturan Pemasangan</h2></div><div class="bg-slate-800 dark:bg-slate-900 text-white p-6 rounded-xl shadow-lg border border-slate-700 dark:border-slate-800"><ul class="space-y-4"><li class="flex items-start gap-3"><i data-lucide="check-circle" class="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5"></i><span class="text-sm">Mudah diakses dan tidak terhalang benda lain.</span></li><li class="flex items-start gap-3"><i data-lucide="check-circle" class="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5"></i><span class="text-sm">Jarak min. 15 cm dari lantai (ideal 125 cm).</span></li><li class="flex items-start gap-3"><i data-lucide="thermometer" class="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5"></i><span class="text-sm">Hindari suhu ekstrim (&gt;49°C atau &lt;-44°C).</span></li></ul></div></div>
                         </div>
                     </div>
-
-                    <!-- Tips -->
                     <div class="bg-yellow-50 dark:bg-yellow-900/10 rounded-2xl p-8 border border-yellow-100 dark:border-yellow-900/30">
-                        <div class="flex items-center gap-3 mb-6">
-                            <i data-lucide="info" class="w-6 h-6 text-yellow-600 dark:text-yellow-500"></i>
-                            <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Tips Perawatan & Keselamatan</h2>
-                        </div>
-                        
+                        <div class="flex items-center gap-3 mb-6"><i data-lucide="info" class="w-6 h-6 text-yellow-600 dark:text-yellow-500"></i><h2 class="text-2xl font-bold text-slate-800 dark:text-white">Tips Perawatan & Keselamatan</h2></div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div>
-                                <h3 class="font-bold text-slate-800 dark:text-slate-200 mb-3 border-b border-yellow-200 dark:border-yellow-800 pb-2">Saat Menggunakan</h3>
-                                <ul class="space-y-2 text-sm text-slate-700 dark:text-slate-300">
-                                    <li class="flex gap-2"><div class="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-1.5"></div>Gunakan hanya jika api masih kecil.</li>
-                                    <li class="flex gap-2"><div class="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-1.5"></div>Pastikan petugas pemadam telah dipanggil.</li>
-                                    <li class="flex gap-2"><div class="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-1.5"></div>Jaga jarak 1.5 - 3 meter dari sumber api.</li>
-                                    <li class="flex gap-2"><div class="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-1.5"></div>Jangan melawan arah angin.</li>
-                                </ul>
-                            </div>
-                            <div>
-                                <h3 class="font-bold text-slate-800 dark:text-slate-200 mb-3 border-b border-yellow-200 dark:border-yellow-800 pb-2">Rutinitas Perawatan</h3>
-                                <ul class="space-y-2 text-sm text-slate-700 dark:text-slate-300">
-                                    <li class="flex gap-2"><div class="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-1.5"></div>Cek jarum tekanan secara berkala (harus di area hijau).</li>
-                                    <li class="flex gap-2"><div class="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-1.5"></div>Kocok tabung powder sebulan sekali agar tidak menggumpal.</li>
-                                    <li class="flex gap-2"><div class="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-1.5"></div>Cek tanggal kadaluwarsa dan isi ulang setahun sekali.</li>
-                                </ul>
-                            </div>
+                            <div><h3 class="font-bold text-slate-800 dark:text-slate-200 mb-3 border-b border-yellow-200 dark:border-yellow-800 pb-2">Saat Menggunakan</h3><ul class="space-y-2 text-sm text-slate-700 dark:text-slate-300"><li class="flex gap-2"><div class="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-1.5"></div>Gunakan hanya jika api masih kecil.</li><li class="flex gap-2"><div class="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-1.5"></div>Pastikan petugas pemadam telah dipanggil.</li><li class="flex gap-2"><div class="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-1.5"></div>Jaga jarak 1.5 - 3 meter dari sumber api.</li></ul></div>
+                            <div><h3 class="font-bold text-slate-800 dark:text-slate-200 mb-3 border-b border-yellow-200 dark:border-yellow-800 pb-2">Rutinitas Perawatan</h3><ul class="space-y-2 text-sm text-slate-700 dark:text-slate-300"><li class="flex gap-2"><div class="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-1.5"></div>Cek jarum tekanan secara berkala (harus di area hijau).</li><li class="flex gap-2"><div class="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-1.5"></div>Kocok tabung powder sebulan sekali.</li><li class="flex gap-2"><div class="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-1.5"></div>Cek tanggal kadaluwarsa.</li></ul></div>
                         </div>
                     </div>
                 </div>
@@ -727,7 +568,7 @@
         }
 
         // --- INIT ---
-        window.addEventListener('DOMContentLoaded', init);
+        init();
 
     </script>
 </body>
