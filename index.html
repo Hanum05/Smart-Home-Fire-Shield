@@ -32,12 +32,6 @@
     <style>
         body { font-family: 'Inter', sans-serif; }
         
-        /* Hilangkan outline fokus pada canvas 3D */
-        canvas {
-            outline: none;
-            -webkit-tap-highlight-color: transparent;
-        }
-
         /* Animations */
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
@@ -137,11 +131,6 @@
             }
             renderHeader();
             lucide.createIcons();
-            
-            // Re-init 3D to update background transparency/color if needed (optional since we use alpha)
-            if (state.activeTab === 'visual3d' && state.selectedRoomId) {
-                 setTimeout(init3DModel, 100);
-            }
         };
 
         window.triggerFire = (id) => {
@@ -220,26 +209,22 @@
         // --- 3D LOADING LOGIC ---
         function init3DModel() {
             const container = document.getElementById('model-3d-container');
-            const slider = document.getElementById('zoom-slider');
+            const slider = document.getElementById('zoom-slider'); // Ambil elemen slider
             if (!container) return;
 
             container.innerHTML = '';
             
             const scene = new THREE.Scene();
-            // FIX: Hapus background scene agar transparan mengikuti CSS container
-            // scene.background = new THREE.Color(state.isDarkMode ? 0x1e293b : 0xf1f5f9);
+            scene.background = new THREE.Color(state.isDarkMode ? 0x1e293b : 0xf1f5f9);
 
             const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 10000);
+            
+            // Posisi Kamera (Naik kanan atas agak mundur)
             camera.position.set(5, 5, 10);
 
-            // FIX: alpha: true membuat background transparan
             const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(container.clientWidth, container.clientHeight);
             renderer.setPixelRatio(window.devicePixelRatio);
-            // Tambahkan style block-level agar tidak ada whitespace
-            renderer.domElement.style.display = "block";
-            renderer.domElement.style.outline = "none";
-            
             container.appendChild(renderer.domElement);
             state.threeRenderer = renderer;
 
@@ -254,23 +239,33 @@
             controls.enableDamping = true;
             controls.autoRotate = true;
             controls.autoRotateSpeed = 2.0;
+            
+            // Batas Zoom (Min & Max Distance)
             controls.minDistance = 2;   
             controls.maxDistance = 200; 
 
             // --- LOGIKA SLIDER ZOOM ---
             if (slider) {
+                // Set nilai awal slider sesuai posisi kamera saat ini
                 slider.value = camera.position.distanceTo(controls.target);
+
+                // Event: Saat slider digeser -> Ubah Zoom Kamera
                 slider.addEventListener('input', (e) => {
                     const zoomVal = parseFloat(e.target.value);
+                    // Hitung vektor arah kamera dari target
                     const direction = camera.position.clone().sub(controls.target).normalize();
+                    // Set posisi baru berdasarkan jarak slider
                     camera.position.copy(controls.target.clone().add(direction.multiplyScalar(zoomVal)));
-                    controls.update(); 
+                    controls.update(); // Update controls agar sinkron
                 });
+
+                // Event: Saat User Scroll/Pinch di Canvas -> Update Slider
                 controls.addEventListener('change', () => {
                     const currentDist = camera.position.distanceTo(controls.target);
                     slider.value = currentDist;
                 });
             }
+            // ---------------------------
 
             const loader = new ColladaLoader();
             
