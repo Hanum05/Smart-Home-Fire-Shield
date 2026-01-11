@@ -223,8 +223,12 @@
             const scene = new THREE.Scene();
             scene.background = new THREE.Color(state.isDarkMode ? 0x1e293b : 0xf1f5f9); // Match bg-slate
 
-            const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
-            camera.position.set(2, 2, 4);
+            // UPDATE: Memperbesar 'far' plane dari 100 ke 10000 agar tidak terpotong saat zoom out jauh
+            const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 10000);
+            
+            // UPDATE: Posisi Kamera (Naik kanan atas agak mundur)
+            // X=5 (Kanan), Y=5 (Atas), Z=10 (Mundur/Jauh)
+            camera.position.set(5, 5, 10);
 
             const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(container.clientWidth, container.clientHeight);
@@ -245,6 +249,8 @@
             controls.enableDamping = true;
             controls.autoRotate = true;
             controls.autoRotateSpeed = 2.0;
+            // Memastikan tidak ada batasan zoom maksimal yang terlalu dekat, biarkan infinity
+            controls.maxDistance = Infinity; 
 
             // 4. Load Custom Model
             const loader = new ColladaLoader();
